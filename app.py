@@ -66,7 +66,7 @@ st.markdown(f"""
         font-size: 2rem;
         font-weight: 700;
         color: {subtitle_color};
-        margin: 1.5rem 2rem 1.2rem 2rem;
+        margin: 1.5rem 0 1.2rem 0;
         padding: 1rem;
         background: {header_bg};
         border-radius: 10px;
@@ -78,7 +78,7 @@ st.markdown(f"""
         font-size: 1.3rem;
         font-weight: 700;
         color: {feature_color};
-        margin: 2rem 2rem 1rem 2rem;
+        margin: 2rem 0 1rem 0;
         padding-left: 0.5rem;
         border-left: 4px solid {feature_color};
         letter-spacing: 0.02em;
@@ -91,12 +91,7 @@ st.markdown(f"""
         border-radius: 12px;
         border: 1px solid {card_border};
         box-shadow: 0 4px 12px {shadow};
-        margin: 0 2rem 1.5rem 2rem;
-    }}
-    
-    /* Content padding */
-    .content-area {{
-        padding: 0 2rem 2rem 2rem;
+        margin-bottom: 1.5rem;
     }}
     
     /* Labels */
@@ -198,7 +193,7 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# === WHITE HEADER WITH LOGO - PROPERLY ALIGNED ===
+# === WHITE HEADER WITH LOGO ===
 header_html = """
 <div style="background: #FFFFFF; padding: 1.2rem 2rem; margin-bottom: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center;">
     <img src="data:image/png;base64,{}" width="70" style="margin-right: 1.5rem;">
@@ -218,8 +213,8 @@ except:
     </div>
     """, unsafe_allow_html=True)
 
-# === CONTENT AREA ===
-st.markdown('<div class="content-area">', unsafe_allow_html=True)
+# === MAIN CONTENT CONTAINER ===
+st.markdown('<div style="padding: 0 2rem 2rem 2rem;">', unsafe_allow_html=True)
 
 # === ROLE SELECTOR ===
 role = st.sidebar.selectbox("Select Role", ["Employee", "Manager", "Admin"])
@@ -228,8 +223,9 @@ role = st.sidebar.selectbox("Select Role", ["Employee", "Manager", "Admin"])
 if role == "Employee":
     st.markdown('<div class="dashboard-title">Employee Dashboard</div>', unsafe_allow_html=True)
 
-    # Submit Timesheet
+    # Submit Timesheet Section
     st.markdown('<div class="feature-header">Submit Timesheet</div>', unsafe_allow_html=True)
+    st.markdown('<div class="data-card">', unsafe_allow_html=True)
     emp_id = st.text_input("Employee ID", key="emp_id_ts")
     date = st.date_input("Date")
     task_id = st.text_input("Task ID")
@@ -245,6 +241,7 @@ if role == "Employee":
         out = pd.concat([df, new_row], ignore_index=True)
         out.to_csv("timesheets.csv", index=False)
         st.success("Timesheet submitted successfully!")
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # Timesheet History
     st.markdown('<div class="feature-header">My Timesheet History</div>', unsafe_allow_html=True)
@@ -257,8 +254,9 @@ if role == "Employee":
         st.dataframe(df[df["EmployeeID"] == emp_id], use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Apply for Leave
+    # Apply for Leave Section
     st.markdown('<div class="feature-header">Apply for Leave</div>', unsafe_allow_html=True)
+    st.markdown('<div class="data-card">', unsafe_allow_html=True)
     leave_type = st.selectbox("Leave Type", ["Sick", "Casual", "Earned"])
     start = st.date_input("Start Date", key="leave_start")
     end = st.date_input("End Date", key="leave_end")
@@ -273,6 +271,7 @@ if role == "Employee":
         out = pd.concat([df, new_row], ignore_index=True)
         out.to_csv("leaves.csv", index=False)
         st.success("Leave request submitted successfully!")
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # Leave History
     st.markdown('<div class="feature-header">My Leave History</div>', unsafe_allow_html=True)
@@ -301,6 +300,7 @@ elif role == "Manager":
     st.dataframe(pending_ts, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
     
+    st.markdown('<div class="data-card">', unsafe_allow_html=True)
     for ix, row in pending_ts.iterrows():
         with st.expander(f"Timesheet ID: {row['TimesheetID']} - Employee: {row['EmployeeID']}"):
             action = st.radio(
@@ -312,6 +312,7 @@ elif role == "Manager":
                 df_ts.loc[ix, "ApprovalStatus"] = action
                 df_ts.to_csv("timesheets.csv", index=False)
                 st.success(f"Timesheet {row['TimesheetID']} updated to {action}!")
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # Approve Leaves
     st.markdown('<div class="feature-header">Approve Leave Applications</div>', unsafe_allow_html=True)
@@ -325,6 +326,7 @@ elif role == "Manager":
     st.dataframe(pending_lv, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
     
+    st.markdown('<div class="data-card">', unsafe_allow_html=True)
     for ix, row in pending_lv.iterrows():
         with st.expander(f"Leave ID: {row['LeaveID']} - Employee: {row['EmployeeID']}"):
             action = st.radio(
@@ -336,6 +338,7 @@ elif role == "Manager":
                 df_lv.loc[ix, "Status"] = action
                 df_lv.to_csv("leaves.csv", index=False)
                 st.success(f"Leave {row['LeaveID']} updated to {action}!")
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # Manager Reports
     st.markdown('<div class="feature-header">Manager Reports</div>', unsafe_allow_html=True)
@@ -361,6 +364,7 @@ elif role == "Admin":
 
     # Add New Employee
     st.markdown('<div class="feature-header">Add New Employee</div>', unsafe_allow_html=True)
+    st.markdown('<div class="data-card">', unsafe_allow_html=True)
     with st.form("Add Employee"):
         new_id = df_emp["EmployeeID"].max() + 1 if not df_emp.empty else 1
         name = st.text_input("Name")
@@ -373,6 +377,7 @@ elif role == "Admin":
             out = pd.concat([df_emp, new_row], ignore_index=True)
             out.to_csv("employees.csv", index=False)
             st.success(f"Employee {name} added successfully!")
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # Global Timesheets
     st.markdown('<div class="feature-header">Global Timesheets Report</div>', unsafe_allow_html=True)
