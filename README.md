@@ -1,4 +1,4 @@
-# pairx-timesheet-management
+# Pairx-timesheet-management
 # Timesheet Management System
 
 A professional web-based timesheet and leave management application with role-based dashboards for employees, managers, and administrators.
