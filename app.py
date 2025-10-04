@@ -4,11 +4,11 @@ from PIL import Image
 import os
 from pandas.errors import EmptyDataError
 
-# Page config - changed initial_sidebar_state for mobile
+# Page config
 st.set_page_config(
     page_title="Pairx Timesheet", 
     layout="wide", 
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
     menu_items={
         'About': "Timesheet Management System v1.0"
     }
@@ -46,7 +46,7 @@ button_bg = "#5FA8D3"
 button_text = "#FFFFFF"
 shadow = "rgba(0, 0, 0, 0.5)"
 
-# === CUSTOM CSS WITH MOBILE IMPROVEMENTS ===
+# === CUSTOM CSS ===
 st.markdown(f"""
 <style>
     /* Hide Streamlit branding */
@@ -65,20 +65,6 @@ st.markdown(f"""
     .block-container {{
         padding: 0 !important;
         max-width: 100% !important;
-    }}
-    
-    /* Mobile: Make sidebar toggle more visible */
-    @media (max-width: 768px) {{
-        [data-testid="stSidebarNav"] {{
-            background: {header_bg};
-            padding-top: 2rem;
-        }}
-        
-        /* Ensure sidebar button is visible */
-        button[kind="header"] {{
-            background-color: {button_bg} !important;
-            color: white !important;
-        }}
     }}
     
     /* Dashboard subtitle */
@@ -238,22 +224,13 @@ st.markdown(f"""
         border-radius: 8px !important;
     }}
     
-    /* Mobile helper text */
-    .mobile-hint {{
-        display: none;
-        background: {button_bg};
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        text-align: center;
-        margin: 1rem;
-        font-size: 0.9rem;
-    }}
-    
-    @media (max-width: 768px) {{
-        .mobile-hint {{
-            display: block;
-        }}
+    /* Role selector container */
+    .role-selector {{
+        background: {header_bg};
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px {shadow};
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -278,22 +255,13 @@ except:
     </div>
     """, unsafe_allow_html=True)
 
-# === MOBILE HINT ===
-st.markdown("""
-<div class="mobile-hint">
-    👈 Tap the arrow on the top-left to switch between Employee, Manager, and Admin modes
-</div>
-""", unsafe_allow_html=True)
-
 # === MAIN CONTENT CONTAINER ===
 st.markdown('<div style="padding: 0 2rem 2rem 2rem;">', unsafe_allow_html=True)
 
-# === ROLE SELECTOR IN SIDEBAR ===
-with st.sidebar:
-    st.title("Navigation")
-    role = st.selectbox("Select Role", ["Employee", "Manager", "Admin"])
-    st.markdown("---")
-    st.info("Switch between different roles to access specific features")
+# === ROLE SELECTOR - MAIN PAGE ===
+st.markdown('<div class="role-selector">', unsafe_allow_html=True)
+role = st.selectbox("Select Your Role", ["Employee", "Manager", "Admin"], label_visibility="visible")
+st.markdown('</div>', unsafe_allow_html=True)
 
 # ========== EMPLOYEE DASHBOARD ==========
 if role == "Employee":
