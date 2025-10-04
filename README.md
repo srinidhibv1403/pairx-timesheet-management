@@ -1,9 +1,9 @@
 # Pairx-Timesheet-Management
 # Timesheet Management System
- [Live Link](#https://pairx-timesheet-management.streamlit.app/)
 
 A professional web-based timesheet and leave management application with role-based dashboards for employees, managers, and administrators.
 
+**Live Demo:** [https://pairx-timesheet-management.streamlit.app/](https://pairx-timesheet-management.streamlit.app/)
 ## Table of Contents
 
 - [Features](#features)
