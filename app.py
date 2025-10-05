@@ -89,11 +89,11 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# Header with logo - PURE BLACK TEXT WITH !important
+# Header with logo - USING SPAN TAG FOR GUARANTEED BLACK TEXT
 header_html = """
 <div style="background: #FFFFFF; padding: 1.2rem 2rem; margin: -2rem -2rem 2rem -2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center;">
     <img src="data:image/png;base64,{}" width="70" style="margin-right: 1.5rem;">
-    <h1 style="color: #000000 !important; font-size: 2rem; margin: 0; font-weight: 700;">Pairx Timesheet Management</h1>
+    <span style="color: #000000; font-size: 2rem; font-weight: 700; font-family: 'Segoe UI', sans-serif;">Pairx Timesheet Management</span>
 </div>
 """
 
@@ -103,7 +103,7 @@ try:
         logo_data = base64.b64encode(f.read()).decode()
     st.markdown(header_html.format(logo_data), unsafe_allow_html=True)
 except:
-    st.markdown('<div style="background: #FFFFFF; padding: 1.2rem 2rem; margin: -2rem -2rem 2rem -2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><h1 style="color: #000000 !important; font-size: 2rem; margin: 0; font-weight: 700;">Pairx Timesheet Management</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div style="background: #FFFFFF; padding: 1.2rem 2rem; margin: -2rem -2rem 2rem -2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><span style="color: #000000; font-size: 2rem; font-weight: 700; font-family: \'Segoe UI\', sans-serif;">Pairx Timesheet Management</span></div>', unsafe_allow_html=True)
 
 # Role selector
 role = st.selectbox("Select Your Role", ["Employee", "Manager", "Admin"])
