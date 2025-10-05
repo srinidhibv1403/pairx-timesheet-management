@@ -133,10 +133,15 @@ if role == "Employee":
         else:
             try:
                 df = pd.read_csv("timesheets.csv")
+                # Add missing columns if old format
+                if "TaskDescription" not in df.columns:
+                    df["TaskDescription"] = ""
+                if "ManagerComment" not in df.columns:
+                    df["ManagerComment"] = ""
             except EmptyDataError:
                 df = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
             new_id = df["TimesheetID"].max() + 1 if not df.empty else 1
-            new_row = pd.DataFrame([[new_id, emp_id.strip(), str(date), task_id.strip(), task_desc.strip(), hours, "Pending", ""]], columns=df.columns)
+            new_row = pd.DataFrame([[new_id, emp_id.strip(), str(date), task_id.strip(), task_desc.strip(), hours, "Pending", ""]], columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
             out = pd.concat([df, new_row], ignore_index=True)
             out.to_csv("timesheets.csv", index=False)
             st.success("Timesheet submitted successfully!")
@@ -146,6 +151,11 @@ if role == "Employee":
     if emp_id and emp_id.strip():
         try:
             df = pd.read_csv("timesheets.csv")
+            # Add missing columns if old format
+            if "TaskDescription" not in df.columns:
+                df["TaskDescription"] = ""
+            if "ManagerComment" not in df.columns:
+                df["ManagerComment"] = ""
         except EmptyDataError:
             df = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
         st.dataframe(df[df["EmployeeID"] == emp_id.strip()], use_container_width=True)
@@ -169,10 +179,15 @@ if role == "Employee":
         else:
             try:
                 df = pd.read_csv("leaves.csv")
+                # Add missing columns if old format
+                if "Reason" not in df.columns:
+                    df["Reason"] = ""
+                if "ManagerComment" not in df.columns:
+                    df["ManagerComment"] = ""
             except EmptyDataError:
                 df = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
             new_id = df["LeaveID"].max() + 1 if not df.empty else 1
-            new_row = pd.DataFrame([[new_id, emp_id.strip(), leave_type, str(start), str(end), leave_reason.strip(), "Pending", ""]], columns=df.columns)
+            new_row = pd.DataFrame([[new_id, emp_id.strip(), leave_type, str(start), str(end), leave_reason.strip(), "Pending", ""]], columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
             out = pd.concat([df, new_row], ignore_index=True)
             out.to_csv("leaves.csv", index=False)
             st.success("Leave request submitted successfully!")
@@ -182,6 +197,11 @@ if role == "Employee":
     if emp_id and emp_id.strip():
         try:
             df = pd.read_csv("leaves.csv")
+            # Add missing columns if old format
+            if "Reason" not in df.columns:
+                df["Reason"] = ""
+            if "ManagerComment" not in df.columns:
+                df["ManagerComment"] = ""
         except EmptyDataError:
             df = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
         st.dataframe(df[df["EmployeeID"] == emp_id.strip()], use_container_width=True)
@@ -195,6 +215,11 @@ elif role == "Manager":
     st.subheader("Approve Timesheets")
     try:
         df_ts = pd.read_csv("timesheets.csv")
+        # Add missing columns if old format
+        if "TaskDescription" not in df_ts.columns:
+            df_ts["TaskDescription"] = ""
+        if "ManagerComment" not in df_ts.columns:
+            df_ts["ManagerComment"] = ""
     except EmptyDataError:
         df_ts = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
     
@@ -206,12 +231,12 @@ elif role == "Manager":
         for ix, row in pending_ts.iterrows():
             with st.expander(f"Timesheet ID: {row['TimesheetID']} - Employee: {row['EmployeeID']}"):
                 st.write(f"**Task ID:** {row['TaskID']}")
-                st.write(f"**Task Description:** {row['TaskDescription']}")
+                st.write(f"**Task Description:** {row.get('TaskDescription', 'N/A')}")
                 st.write(f"**Hours Worked:** {row['HoursWorked']}")
                 st.write(f"**Date:** {row['Date']}")
                 
                 action = st.radio(f"Decision *", ["Pending", "Approve", "Reject"], key=f"ts{row['TimesheetID']}")
-                manager_comment = st.text_area(f"Reason for Decision", placeholder="Enter reason for approval/rejection", key=f"comment_ts{row['TimesheetID']}", height=80)
+                manager_comment = st.text_area(f"Reason for Decision *", placeholder="Enter reason for approval/rejection", key=f"comment_ts{row['TimesheetID']}", height=80)
                 
                 if st.button(f"Update", key=f"btn_ts{row['TimesheetID']}"):
                     if action == "Pending":
@@ -229,6 +254,11 @@ elif role == "Manager":
     st.subheader("Approve Leave Applications")
     try:
         df_lv = pd.read_csv("leaves.csv")
+        # Add missing columns if old format
+        if "Reason" not in df_lv.columns:
+            df_lv["Reason"] = ""
+        if "ManagerComment" not in df_lv.columns:
+            df_lv["ManagerComment"] = ""
     except EmptyDataError:
         df_lv = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
     
@@ -242,10 +272,10 @@ elif role == "Manager":
                 st.write(f"**Leave Type:** {row['Type']}")
                 st.write(f"**Start Date:** {row['StartDate']}")
                 st.write(f"**End Date:** {row['EndDate']}")
-                st.write(f"**Employee Reason:** {row['Reason']}")
+                st.write(f"**Employee Reason:** {row.get('Reason', 'N/A')}")
                 
                 action = st.radio(f"Decision *", ["Pending", "Approve", "Reject"], key=f"lv{row['LeaveID']}")
-                manager_comment = st.text_area(f"Reason for Decision", placeholder="Enter reason for approval/rejection", key=f"comment_lv{row['LeaveID']}", height=80)
+                manager_comment = st.text_area(f"Reason for Decision *", placeholder="Enter reason for approval/rejection", key=f"comment_lv{row['LeaveID']}", height=80)
                 
                 if st.button(f"Update", key=f"btn_lv{row['LeaveID']}"):
                     if action == "Pending":
@@ -307,6 +337,11 @@ elif role == "Admin":
     st.subheader("Global Timesheets")
     try:
         ts = pd.read_csv("timesheets.csv")
+        # Add missing columns if old format
+        if "TaskDescription" not in ts.columns:
+            ts["TaskDescription"] = ""
+        if "ManagerComment" not in ts.columns:
+            ts["ManagerComment"] = ""
     except EmptyDataError:
         ts = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
     
@@ -319,6 +354,11 @@ elif role == "Admin":
     st.subheader("Global Leaves")
     try:
         lv = pd.read_csv("leaves.csv")
+        # Add missing columns if old format
+        if "Reason" not in lv.columns:
+            lv["Reason"] = ""
+        if "ManagerComment" not in lv.columns:
+            lv["ManagerComment"] = ""
     except EmptyDataError:
         lv = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
     
