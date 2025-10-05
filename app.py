@@ -8,7 +8,7 @@ st.set_page_config(page_title="Pairx Timesheet", layout="wide")
 
 def check_and_create_csvs():
     files_headers = {
-        "employees.csv": "EmployeeID,Name,Department,Role\n",
+        "employees.csv": "EmployeeID,Name,Department,Role,ManagerID\n",
         "projects.csv": "ProjectID,ProjectName,StartDate,EndDate\n",
         "tasks.csv": "TaskID,ProjectID,AssignedTo,Status\n",
         "timesheets.csv": "TimesheetID,EmployeeID,Date,TaskID,TaskDescription,HoursWorked,ApprovalStatus,ManagerComment\n",
@@ -116,6 +116,20 @@ if role == "Employee":
     
     st.subheader("Submit Timesheet")
     emp_id = st.text_input("Employee ID *", placeholder="Enter your Employee ID")
+    
+    # Validate employee exists
+    employee_exists = False
+    if emp_id and emp_id.strip():
+        try:
+            df_emp = pd.read_csv("employees.csv")
+            if "ManagerID" not in df_emp.columns:
+                df_emp["ManagerID"] = ""
+            employee_exists = emp_id.strip() in df_emp["EmployeeID"].astype(str).values
+            if not employee_exists:
+                st.error("Employee ID not found. Please contact admin to create your account.")
+        except EmptyDataError:
+            st.error("No employees found. Please contact admin.")
+    
     date = st.date_input("Date *")
     task_id = st.text_input("Task ID *", placeholder="Enter Task ID")
     task_desc = st.text_area("Task Description *", placeholder="Describe the task you worked on", height=100)
@@ -124,6 +138,8 @@ if role == "Employee":
     if st.button("Submit Timesheet"):
         if not emp_id or not emp_id.strip():
             st.error("Please enter Employee ID")
+        elif not employee_exists:
+            st.error("Cannot submit timesheet. Employee ID not registered in system.")
         elif not task_id or not task_id.strip():
             st.error("Please enter Task ID")
         elif not task_desc or not task_desc.strip():
@@ -147,7 +163,7 @@ if role == "Employee":
     
     st.markdown("---")
     st.subheader("My Timesheet History")
-    if emp_id and emp_id.strip():
+    if emp_id and emp_id.strip() and employee_exists:
         try:
             df = pd.read_csv("timesheets.csv")
             if "TaskDescription" not in df.columns:
@@ -158,7 +174,7 @@ if role == "Employee":
             df = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
         st.dataframe(df[df["EmployeeID"] == emp_id.strip()], use_container_width=True)
     else:
-        st.info("Enter your Employee ID above to view history")
+        st.info("Enter valid Employee ID above to view history")
     
     st.markdown("---")
     st.subheader("Apply for Leave")
@@ -170,6 +186,8 @@ if role == "Employee":
     if st.button("Apply for Leave"):
         if not emp_id or not emp_id.strip():
             st.error("Please enter Employee ID first")
+        elif not employee_exists:
+            st.error("Cannot apply for leave. Employee ID not registered in system.")
         elif start > end:
             st.error("End date must be after or equal to start date")
         elif not leave_reason or not leave_reason.strip():
@@ -191,7 +209,7 @@ if role == "Employee":
     
     st.markdown("---")
     st.subheader("My Leave History")
-    if emp_id and emp_id.strip():
+    if emp_id and emp_id.strip() and employee_exists:
         try:
             df = pd.read_csv("leaves.csv")
             if "Reason" not in df.columns:
@@ -202,7 +220,7 @@ if role == "Employee":
             df = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
         st.dataframe(df[df["EmployeeID"] == emp_id.strip()], use_container_width=True)
     else:
-        st.info("Enter your Employee ID above to view leave history")
+        st.info("Enter valid Employee ID above to view leave history")
 
 # MANAGER DASHBOARD
 elif role == "Manager":
@@ -298,8 +316,10 @@ elif role == "Admin":
     st.subheader("Manage Employees")
     try:
         df_emp = pd.read_csv("employees.csv")
+        if "ManagerID" not in df_emp.columns:
+            df_emp["ManagerID"] = ""
     except EmptyDataError:
-        df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Department", "Role"])
+        df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Department", "Role", "ManagerID"])
     
     if df_emp.empty:
         st.info("No employees. Add below.")
@@ -313,6 +333,15 @@ elif role == "Admin":
         name = st.text_input("Name *", placeholder="Enter name")
         dept = st.text_input("Department *", placeholder="Enter department")
         role_sel = st.selectbox("Role *", ["Employee", "Manager", "Admin"])
+        
+        # Get list of managers for assignment
+        managers_list = ["None"]
+        if not df_emp.empty:
+            managers = df_emp[df_emp["Role"] == "Manager"]["EmployeeID"].astype(str).tolist()
+            managers_list.extend(managers)
+        
+        manager_id = st.selectbox("Assign Manager ID", managers_list)
+        
         submitted = st.form_submit_button("Add Employee")
         
         if submitted:
@@ -325,7 +354,8 @@ elif role == "Admin":
             elif emp_id_input.strip() in df_emp["EmployeeID"].astype(str).values:
                 st.error("Employee ID already exists. Please use a unique ID.")
             else:
-                new_row = pd.DataFrame([[emp_id_input.strip(), name.strip(), dept.strip(), role_sel]], columns=df_emp.columns)
+                manager_val = "" if manager_id == "None" else manager_id
+                new_row = pd.DataFrame([[emp_id_input.strip(), name.strip(), dept.strip(), role_sel, manager_val]], columns=["EmployeeID", "Name", "Department", "Role", "ManagerID"])
                 out = pd.concat([df_emp, new_row], ignore_index=True)
                 out.to_csv("employees.csv", index=False)
                 st.success(f"Employee {name.strip()} added with ID {emp_id_input.strip()}!")
