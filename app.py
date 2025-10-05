@@ -4,17 +4,8 @@ from PIL import Image
 import os
 from pandas.errors import EmptyDataError
 
-# Page config
-st.set_page_config(
-    page_title="Pairx Timesheet", 
-    layout="wide", 
-    initial_sidebar_state="collapsed",
-    menu_items={
-        'About': "Timesheet Management System v1.0"
-    }
-)
+st.set_page_config(page_title="Pairx Timesheet", layout="wide")
 
-# Ensure CSV files exist for first run
 def check_and_create_csvs():
     files_headers = {
         "employees.csv": "EmployeeID,Name,Department,Role\n",
@@ -30,12 +21,11 @@ def check_and_create_csvs():
 
 check_and_create_csvs()
 
-# === DARK MODE THEME COLORS ===
+# Theme colors
 page_bg = "#0f1419"
 header_bg = "#1a2332"
 card_bg = "#1e2a3a"
 card_border = "#2d4057"
-title_color = "#FFFFFF"
 subtitle_color = "#5FA8D3"
 feature_color = "#FF9800"
 body_text = "#E8EDF2"
@@ -46,28 +36,22 @@ button_bg = "#5FA8D3"
 button_text = "#FFFFFF"
 shadow = "rgba(0, 0, 0, 0.5)"
 
-# === CUSTOM CSS ===
 st.markdown(f"""
 <style>
-    /* Hide Streamlit branding */
-    #MainMenu {{visibility: hidden;}}
-    footer {{visibility: hidden;}}
-    header {{visibility: hidden;}}
+    #MainMenu, footer, header {{visibility: hidden;}}
+    [data-testid="stSidebar"] {{display: none;}}
     
-    /* Page background */
     .stApp {{
         background: {page_bg};
-        font-family: 'Segoe UI', 'Roboto', sans-serif;
+        font-family: 'Segoe UI', sans-serif;
         color: {body_text};
     }}
     
-    /* Remove ALL default padding */
     .block-container {{
         padding: 0 !important;
         max-width: 100% !important;
     }}
     
-    /* Dashboard subtitle */
     .dashboard-title {{
         text-align: center;
         font-size: 2rem;
@@ -80,15 +64,6 @@ st.markdown(f"""
         box-shadow: 0 2px 8px {shadow};
     }}
     
-    /* Mobile responsive title */
-    @media (max-width: 768px) {{
-        .dashboard-title {{
-            font-size: 1.5rem;
-            padding: 0.8rem;
-        }}
-    }}
-    
-    /* Feature section headers */
     .feature-header {{
         font-size: 1.3rem;
         font-weight: 700;
@@ -96,18 +71,8 @@ st.markdown(f"""
         margin: 2rem 0 1rem 0;
         padding-left: 0.5rem;
         border-left: 4px solid {feature_color};
-        letter-spacing: 0.02em;
     }}
     
-    /* Mobile responsive feature header */
-    @media (max-width: 768px) {{
-        .feature-header {{
-            font-size: 1.1rem;
-            margin: 1.5rem 0 0.8rem 0;
-        }}
-    }}
-    
-    /* Card containers */
     .data-card {{
         background: {card_bg};
         padding: 1.2rem;
@@ -117,75 +82,23 @@ st.markdown(f"""
         margin-bottom: 1.5rem;
     }}
     
-    /* Mobile responsive card */
-    @media (max-width: 768px) {{
-        .data-card {{
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }}
-    }}
-    
-    /* Labels */
     label {{
         color: {label_text} !important;
         font-weight: 600 !important;
-        font-size: 0.95rem !important;
     }}
     
-    /* Input styling */
     .stTextInput > div > div > input,
     .stNumberInput > div > div > input,
-    .stDateInput > div > div > input {{
-        background: {input_bg} !important;
-        color: {input_text} !important;
-        border: 1px solid {card_border} !important;
-        border-radius: 8px !important;
-        padding: 0.6rem !important;
-        font-size: 1rem !important;
-    }}
-    
-    /* Selectbox styling */
+    .stDateInput > div > div > input,
     .stSelectbox > div > div {{
         background: {input_bg} !important;
         color: {input_text} !important;
         border: 1px solid {card_border} !important;
         border-radius: 8px !important;
+        padding: 0.6rem !important;
     }}
     
-    /* Button styling */
-    .stButton > button {{
-        background: {button_bg} !important;
-        color: {button_text} !important;
-        border-radius: 8px !important;
-        padding: 0.6rem 2rem !important;
-        font-weight: 600 !important;
-        border: none !important;
-        box-shadow: 0 2px 6px {shadow} !important;
-        transition: all 0.3s ease !important;
-        width: 100%;
-    }}
-    
-    .stButton > button:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px {shadow} !important;
-        opacity: 0.9;
-    }}
-    
-    /* Radio buttons */
-    .stRadio > label {{
-        color: {label_text} !important;
-        font-weight: 600 !important;
-    }}
-    
-    .stRadio > div {{
-        color: {body_text} !important;
-    }}
-    
-    .stRadio > div label {{
-        color: {body_text} !important;
-    }}
-    
-    /* Form submit button */
+    .stButton > button,
     .stFormSubmitButton > button {{
         background: {button_bg} !important;
         color: {button_text} !important;
@@ -193,9 +106,18 @@ st.markdown(f"""
         padding: 0.6rem 2rem !important;
         font-weight: 600 !important;
         width: 100%;
+        box-shadow: 0 2px 6px {shadow} !important;
     }}
     
-    /* Expander */
+    .stButton > button:hover {{
+        transform: translateY(-2px);
+        opacity: 0.9;
+    }}
+    
+    .stRadio > div {{
+        color: {body_text} !important;
+    }}
+    
     .streamlit-expanderHeader {{
         background: {card_bg} !important;
         color: {body_text} !important;
@@ -203,28 +125,18 @@ st.markdown(f"""
         border-radius: 8px !important;
     }}
     
-    /* Dataframe */
-    .dataframe {{
-        border-radius: 8px !important;
-    }}
-    
-    /* Sidebar */
-    [data-testid="stSidebar"] {{
-        background: {header_bg};
-    }}
-    
-    [data-testid="stSidebar"] * {{
-        color: {label_text} !important;
-    }}
-    
-    /* Success messages */
     .stSuccess {{
         background: #4CAF50 !important;
         color: white !important;
         border-radius: 8px !important;
     }}
     
-    /* Role selector container */
+    .stError {{
+        background: #F44336 !important;
+        color: white !important;
+        border-radius: 8px !important;
+    }}
+    
     .role-selector {{
         background: {header_bg};
         padding: 1rem;
@@ -232,10 +144,23 @@ st.markdown(f"""
         margin-bottom: 1.5rem;
         box-shadow: 0 2px 8px {shadow};
     }}
+    
+    @media (max-width: 768px) {{
+        .dashboard-title {{
+            font-size: 1.5rem;
+            padding: 0.8rem;
+        }}
+        .feature-header {{
+            font-size: 1.1rem;
+        }}
+        .data-card {{
+            padding: 1rem;
+        }}
+    }}
 </style>
 """, unsafe_allow_html=True)
 
-# === WHITE HEADER WITH LOGO ===
+# Header with logo
 header_html = """
 <div style="background: #FFFFFF; padding: 1.2rem 2rem; margin-bottom: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center;">
     <img src="data:image/png;base64,{}" width="70" style="margin-right: 1.5rem;">
@@ -249,90 +174,96 @@ try:
         logo_data = base64.b64encode(f.read()).decode()
     st.markdown(header_html.format(logo_data), unsafe_allow_html=True)
 except:
-    st.markdown("""
-    <div style="background: #FFFFFF; padding: 1.2rem 2rem; margin-bottom: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-        <h1 style="color: #1C3F5E; font-size: 2rem; margin: 0; font-weight: 700;">Pairx Timesheet Management</h1>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div style="background: #FFFFFF; padding: 1.2rem 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><h1 style="color: #1C3F5E; font-size: 2rem; margin: 0;">Pairx Timesheet Management</h1></div>', unsafe_allow_html=True)
 
-# === MAIN CONTENT CONTAINER ===
 st.markdown('<div style="padding: 0 2rem 2rem 2rem;">', unsafe_allow_html=True)
 
-# === ROLE SELECTOR - MAIN PAGE ===
+# Role selector
 st.markdown('<div class="role-selector">', unsafe_allow_html=True)
-role = st.selectbox("Select Your Role", ["Employee", "Manager", "Admin"], label_visibility="visible")
+role = st.selectbox("Select Your Role", ["Employee", "Manager", "Admin"])
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ========== EMPLOYEE DASHBOARD ==========
+# EMPLOYEE DASHBOARD
 if role == "Employee":
     st.markdown('<div class="dashboard-title">Employee Dashboard</div>', unsafe_allow_html=True)
 
-    # Submit Timesheet Section
     st.markdown('<div class="feature-header">Submit Timesheet</div>', unsafe_allow_html=True)
     st.markdown('<div class="data-card">', unsafe_allow_html=True)
-    emp_id = st.text_input("Employee ID", key="emp_id_ts")
-    date = st.date_input("Date")
-    task_id = st.text_input("Task ID")
-    hours = st.number_input("Hours Worked", min_value=0.0, step=0.5)
+    emp_id = st.text_input("Employee ID *", placeholder="Enter your Employee ID")
+    date = st.date_input("Date *")
+    task_id = st.text_input("Task ID *", placeholder="Enter Task ID")
+    hours = st.number_input("Hours Worked *", min_value=0.0, step=0.5)
     
     if st.button("Submit Timesheet"):
-        try:
-            df = pd.read_csv("timesheets.csv")
-        except EmptyDataError:
-            df = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "HoursWorked", "ApprovalStatus"])
-        new_id = df["TimesheetID"].max() + 1 if not df.empty else 1
-        new_row = pd.DataFrame([[new_id, emp_id, str(date), task_id, hours, "Pending"]], columns=df.columns)
-        out = pd.concat([df, new_row], ignore_index=True)
-        out.to_csv("timesheets.csv", index=False)
-        st.success("Timesheet submitted successfully!")
+        if not emp_id or not emp_id.strip():
+            st.error("Please enter Employee ID")
+        elif not task_id or not task_id.strip():
+            st.error("Please enter Task ID")
+        elif hours <= 0:
+            st.error("Please enter hours worked (must be greater than 0)")
+        else:
+            try:
+                df = pd.read_csv("timesheets.csv")
+            except EmptyDataError:
+                df = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "HoursWorked", "ApprovalStatus"])
+            new_id = df["TimesheetID"].max() + 1 if not df.empty else 1
+            new_row = pd.DataFrame([[new_id, emp_id.strip(), str(date), task_id.strip(), hours, "Pending"]], columns=df.columns)
+            out = pd.concat([df, new_row], ignore_index=True)
+            out.to_csv("timesheets.csv", index=False)
+            st.success("Timesheet submitted successfully!")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Timesheet History
     st.markdown('<div class="feature-header">My Timesheet History</div>', unsafe_allow_html=True)
     st.markdown('<div class="data-card">', unsafe_allow_html=True)
-    if emp_id:
+    if emp_id and emp_id.strip():
         try:
             df = pd.read_csv("timesheets.csv")
         except EmptyDataError:
             df = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "HoursWorked", "ApprovalStatus"])
-        st.dataframe(df[df["EmployeeID"] == emp_id], use_container_width=True)
+        st.dataframe(df[df["EmployeeID"] == emp_id.strip()], use_container_width=True)
+    else:
+        st.info("Enter your Employee ID above to view history")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Apply for Leave Section
     st.markdown('<div class="feature-header">Apply for Leave</div>', unsafe_allow_html=True)
     st.markdown('<div class="data-card">', unsafe_allow_html=True)
-    leave_type = st.selectbox("Leave Type", ["Sick", "Casual", "Earned"])
-    start = st.date_input("Start Date", key="leave_start")
-    end = st.date_input("End Date", key="leave_end")
+    leave_type = st.selectbox("Leave Type *", ["Sick", "Casual", "Earned"])
+    start = st.date_input("Start Date *", key="leave_start")
+    end = st.date_input("End Date *", key="leave_end")
     
     if st.button("Apply for Leave"):
-        try:
-            df = pd.read_csv("leaves.csv")
-        except EmptyDataError:
-            df = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Status"])
-        new_id = df["LeaveID"].max() + 1 if not df.empty else 1
-        new_row = pd.DataFrame([[new_id, emp_id, leave_type, str(start), str(end), "Pending"]], columns=df.columns)
-        out = pd.concat([df, new_row], ignore_index=True)
-        out.to_csv("leaves.csv", index=False)
-        st.success("Leave request submitted successfully!")
+        if not emp_id or not emp_id.strip():
+            st.error("Please enter Employee ID first")
+        elif start > end:
+            st.error("End date must be after or equal to start date")
+        else:
+            try:
+                df = pd.read_csv("leaves.csv")
+            except EmptyDataError:
+                df = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Status"])
+            new_id = df["LeaveID"].max() + 1 if not df.empty else 1
+            new_row = pd.DataFrame([[new_id, emp_id.strip(), leave_type, str(start), str(end), "Pending"]], columns=df.columns)
+            out = pd.concat([df, new_row], ignore_index=True)
+            out.to_csv("leaves.csv", index=False)
+            st.success("Leave request submitted successfully!")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Leave History
     st.markdown('<div class="feature-header">My Leave History</div>', unsafe_allow_html=True)
     st.markdown('<div class="data-card">', unsafe_allow_html=True)
-    if emp_id:
+    if emp_id and emp_id.strip():
         try:
             df = pd.read_csv("leaves.csv")
         except EmptyDataError:
             df = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Status"])
-        st.dataframe(df[df["EmployeeID"] == emp_id], use_container_width=True)
+        st.dataframe(df[df["EmployeeID"] == emp_id.strip()], use_container_width=True)
+    else:
+        st.info("Enter your Employee ID above to view leave history")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ========== MANAGER DASHBOARD ==========
+# MANAGER DASHBOARD
 elif role == "Manager":
     st.markdown('<div class="dashboard-title">Manager Dashboard</div>', unsafe_allow_html=True)
 
-    # Approve Timesheets
     st.markdown('<div class="feature-header">Approve Timesheets</div>', unsafe_allow_html=True)
     try:
         df_ts = pd.read_csv("timesheets.csv")
@@ -341,24 +272,23 @@ elif role == "Manager":
     
     pending_ts = df_ts[df_ts["ApprovalStatus"] == "Pending"]
     st.markdown('<div class="data-card">', unsafe_allow_html=True)
-    st.dataframe(pending_ts, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.markdown('<div class="data-card">', unsafe_allow_html=True)
-    for ix, row in pending_ts.iterrows():
-        with st.expander(f"Timesheet ID: {row['TimesheetID']} - Employee: {row['EmployeeID']}"):
-            action = st.radio(
-                f"Decision for Timesheet {row['TimesheetID']}",
-                ["Pending", "Approve", "Reject"],
-                key=f"ts{row['TimesheetID']}"
-            )
-            if st.button(f"Update Timesheet {row['TimesheetID']}", key=f"btn_ts{row['TimesheetID']}"):
-                df_ts.loc[ix, "ApprovalStatus"] = action
-                df_ts.to_csv("timesheets.csv", index=False)
-                st.success(f"Timesheet {row['TimesheetID']} updated to {action}!")
+    if pending_ts.empty:
+        st.info("No pending timesheets")
+    else:
+        st.dataframe(pending_ts, use_container_width=True)
+        for ix, row in pending_ts.iterrows():
+            with st.expander(f"Timesheet ID: {row['TimesheetID']} - Employee: {row['EmployeeID']}"):
+                action = st.radio(f"Decision *", ["Pending", "Approve", "Reject"], key=f"ts{row['TimesheetID']}")
+                if st.button(f"Update", key=f"btn_ts{row['TimesheetID']}"):
+                    if action == "Pending":
+                        st.warning("Please select Approve or Reject")
+                    else:
+                        df_ts.loc[ix, "ApprovalStatus"] = action
+                        df_ts.to_csv("timesheets.csv", index=False)
+                        st.success(f"Timesheet updated to {action}!")
+                        st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Approve Leaves
     st.markdown('<div class="feature-header">Approve Leave Applications</div>', unsafe_allow_html=True)
     try:
         df_lv = pd.read_csv("leaves.csv")
@@ -367,35 +297,36 @@ elif role == "Manager":
     
     pending_lv = df_lv[df_lv["Status"] == "Pending"]
     st.markdown('<div class="data-card">', unsafe_allow_html=True)
-    st.dataframe(pending_lv, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.markdown('<div class="data-card">', unsafe_allow_html=True)
-    for ix, row in pending_lv.iterrows():
-        with st.expander(f"Leave ID: {row['LeaveID']} - Employee: {row['EmployeeID']}"):
-            action = st.radio(
-                f"Decision for Leave {row['LeaveID']}",
-                ["Pending", "Approve", "Reject"],
-                key=f"lv{row['LeaveID']}"
-            )
-            if st.button(f"Update Leave {row['LeaveID']}", key=f"btn_lv{row['LeaveID']}"):
-                df_lv.loc[ix, "Status"] = action
-                df_lv.to_csv("leaves.csv", index=False)
-                st.success(f"Leave {row['LeaveID']} updated to {action}!")
+    if pending_lv.empty:
+        st.info("No pending leave applications")
+    else:
+        st.dataframe(pending_lv, use_container_width=True)
+        for ix, row in pending_lv.iterrows():
+            with st.expander(f"Leave ID: {row['LeaveID']} - Employee: {row['EmployeeID']}"):
+                action = st.radio(f"Decision *", ["Pending", "Approve", "Reject"], key=f"lv{row['LeaveID']}")
+                if st.button(f"Update", key=f"btn_lv{row['LeaveID']}"):
+                    if action == "Pending":
+                        st.warning("Please select Approve or Reject")
+                    else:
+                        df_lv.loc[ix, "Status"] = action
+                        df_lv.to_csv("leaves.csv", index=False)
+                        st.success(f"Leave updated to {action}!")
+                        st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Manager Reports
-    st.markdown('<div class="feature-header">Manager Reports</div>', unsafe_allow_html=True)
+    st.markdown('<div class="feature-header">Approved Timesheets</div>', unsafe_allow_html=True)
     st.markdown('<div class="data-card">', unsafe_allow_html=True)
     approved = df_ts[df_ts["ApprovalStatus"] == "Approve"]
-    st.dataframe(approved, use_container_width=True)
+    if approved.empty:
+        st.info("No approved timesheets yet")
+    else:
+        st.dataframe(approved, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ========== ADMIN DASHBOARD ==========
+# ADMIN DASHBOARD
 elif role == "Admin":
     st.markdown('<div class="dashboard-title">Admin Dashboard</div>', unsafe_allow_html=True)
 
-    # Manage Employees
     st.markdown('<div class="feature-header">Manage Employees</div>', unsafe_allow_html=True)
     try:
         df_emp = pd.read_csv("employees.csv")
@@ -403,46 +334,58 @@ elif role == "Admin":
         df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Department", "Role"])
     
     st.markdown('<div class="data-card">', unsafe_allow_html=True)
-    st.dataframe(df_emp, use_container_width=True)
+    if df_emp.empty:
+        st.info("No employees. Add below.")
+    else:
+        st.dataframe(df_emp, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Add New Employee
     st.markdown('<div class="feature-header">Add New Employee</div>', unsafe_allow_html=True)
     st.markdown('<div class="data-card">', unsafe_allow_html=True)
     with st.form("Add Employee"):
         new_id = df_emp["EmployeeID"].max() + 1 if not df_emp.empty else 1
-        name = st.text_input("Name")
-        dept = st.text_input("Department")
-        role_sel = st.selectbox("Role", ["Employee", "Manager", "Admin"])
+        name = st.text_input("Name *", placeholder="Enter name")
+        dept = st.text_input("Department *", placeholder="Enter department")
+        role_sel = st.selectbox("Role *", ["Employee", "Manager", "Admin"])
         submitted = st.form_submit_button("Add Employee")
         
-        if submitted and name:
-            new_row = pd.DataFrame([[new_id, name, dept, role_sel]], columns=df_emp.columns)
-            out = pd.concat([df_emp, new_row], ignore_index=True)
-            out.to_csv("employees.csv", index=False)
-            st.success(f"Employee {name} added successfully!")
+        if submitted:
+            if not name or not name.strip():
+                st.error("Please enter name")
+            elif not dept or not dept.strip():
+                st.error("Please enter department")
+            else:
+                new_row = pd.DataFrame([[new_id, name.strip(), dept.strip(), role_sel]], columns=df_emp.columns)
+                out = pd.concat([df_emp, new_row], ignore_index=True)
+                out.to_csv("employees.csv", index=False)
+                st.success(f"Employee {name.strip()} added!")
+                st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Global Timesheets
-    st.markdown('<div class="feature-header">Global Timesheets Report</div>', unsafe_allow_html=True)
+    st.markdown('<div class="feature-header">Global Timesheets</div>', unsafe_allow_html=True)
     try:
         ts = pd.read_csv("timesheets.csv")
     except EmptyDataError:
         ts = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "HoursWorked", "ApprovalStatus"])
     
     st.markdown('<div class="data-card">', unsafe_allow_html=True)
-    st.dataframe(ts, use_container_width=True)
+    if ts.empty:
+        st.info("No timesheets submitted")
+    else:
+        st.dataframe(ts, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Global Leaves
-    st.markdown('<div class="feature-header">Global Leave Report</div>', unsafe_allow_html=True)
+    st.markdown('<div class="feature-header">Global Leaves</div>', unsafe_allow_html=True)
     try:
         lv = pd.read_csv("leaves.csv")
     except EmptyDataError:
         lv = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Status"])
     
     st.markdown('<div class="data-card">', unsafe_allow_html=True)
-    st.dataframe(lv, use_container_width=True)
+    if lv.empty:
+        st.info("No leave applications")
+    else:
+        st.dataframe(lv, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
