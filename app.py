@@ -11,8 +11,8 @@ def check_and_create_csvs():
         "employees.csv": "EmployeeID,Name,Department,Role\n",
         "projects.csv": "ProjectID,ProjectName,StartDate,EndDate\n",
         "tasks.csv": "TaskID,ProjectID,AssignedTo,Status\n",
-        "timesheets.csv": "TimesheetID,EmployeeID,Date,TaskID,HoursWorked,ApprovalStatus\n",
-        "leaves.csv": "LeaveID,EmployeeID,Type,StartDate,EndDate,Status\n"
+        "timesheets.csv": "TimesheetID,EmployeeID,Date,TaskID,TaskDescription,HoursWorked,ApprovalStatus,ManagerComment\n",
+        "leaves.csv": "LeaveID,EmployeeID,Type,StartDate,EndDate,Reason,Status,ManagerComment\n"
     }
     for fname, header in files_headers.items():
         if not os.path.exists(fname):
@@ -53,7 +53,8 @@ st.markdown(f"""
     .stTextInput > div > div > input,
     .stNumberInput > div > div > input,
     .stDateInput > div > div > input,
-    .stSelectbox > div > div {{
+    .stSelectbox > div > div,
+    .stTextArea > div > div > textarea {{
         background: {input_bg} !important;
         color: {input_text} !important;
         border: 1px solid #2d4057 !important;
@@ -89,7 +90,7 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# Header with logo - USING SPAN TAG FOR GUARANTEED BLACK TEXT
+# Header with logo
 header_html = """
 <div style="background: #FFFFFF; padding: 1.2rem 2rem; margin: -2rem -2rem 2rem -2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center;">
     <img src="data:image/png;base64,{}" width="70" style="margin-right: 1.5rem;">
@@ -117,6 +118,7 @@ if role == "Employee":
     emp_id = st.text_input("Employee ID *", placeholder="Enter your Employee ID")
     date = st.date_input("Date *")
     task_id = st.text_input("Task ID *", placeholder="Enter Task ID")
+    task_desc = st.text_area("Task Description *", placeholder="Describe the task you worked on", height=100)
     hours = st.number_input("Hours Worked *", min_value=0.0, step=0.5)
     
     if st.button("Submit Timesheet"):
@@ -124,15 +126,17 @@ if role == "Employee":
             st.error("Please enter Employee ID")
         elif not task_id or not task_id.strip():
             st.error("Please enter Task ID")
+        elif not task_desc or not task_desc.strip():
+            st.error("Please enter Task Description")
         elif hours <= 0:
             st.error("Please enter hours worked (must be greater than 0)")
         else:
             try:
                 df = pd.read_csv("timesheets.csv")
             except EmptyDataError:
-                df = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "HoursWorked", "ApprovalStatus"])
+                df = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
             new_id = df["TimesheetID"].max() + 1 if not df.empty else 1
-            new_row = pd.DataFrame([[new_id, emp_id.strip(), str(date), task_id.strip(), hours, "Pending"]], columns=df.columns)
+            new_row = pd.DataFrame([[new_id, emp_id.strip(), str(date), task_id.strip(), task_desc.strip(), hours, "Pending", ""]], columns=df.columns)
             out = pd.concat([df, new_row], ignore_index=True)
             out.to_csv("timesheets.csv", index=False)
             st.success("Timesheet submitted successfully!")
@@ -143,7 +147,7 @@ if role == "Employee":
         try:
             df = pd.read_csv("timesheets.csv")
         except EmptyDataError:
-            df = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "HoursWorked", "ApprovalStatus"])
+            df = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
         st.dataframe(df[df["EmployeeID"] == emp_id.strip()], use_container_width=True)
     else:
         st.info("Enter your Employee ID above to view history")
@@ -153,19 +157,22 @@ if role == "Employee":
     leave_type = st.selectbox("Leave Type *", ["Sick", "Casual", "Earned"])
     start = st.date_input("Start Date *", key="leave_start")
     end = st.date_input("End Date *", key="leave_end")
+    leave_reason = st.text_area("Reason for Leave *", placeholder="Explain why you need this leave", height=100)
     
     if st.button("Apply for Leave"):
         if not emp_id or not emp_id.strip():
             st.error("Please enter Employee ID first")
         elif start > end:
             st.error("End date must be after or equal to start date")
+        elif not leave_reason or not leave_reason.strip():
+            st.error("Please enter reason for leave")
         else:
             try:
                 df = pd.read_csv("leaves.csv")
             except EmptyDataError:
-                df = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Status"])
+                df = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
             new_id = df["LeaveID"].max() + 1 if not df.empty else 1
-            new_row = pd.DataFrame([[new_id, emp_id.strip(), leave_type, str(start), str(end), "Pending"]], columns=df.columns)
+            new_row = pd.DataFrame([[new_id, emp_id.strip(), leave_type, str(start), str(end), leave_reason.strip(), "Pending", ""]], columns=df.columns)
             out = pd.concat([df, new_row], ignore_index=True)
             out.to_csv("leaves.csv", index=False)
             st.success("Leave request submitted successfully!")
@@ -176,7 +183,7 @@ if role == "Employee":
         try:
             df = pd.read_csv("leaves.csv")
         except EmptyDataError:
-            df = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Status"])
+            df = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
         st.dataframe(df[df["EmployeeID"] == emp_id.strip()], use_container_width=True)
     else:
         st.info("Enter your Employee ID above to view leave history")
@@ -189,7 +196,7 @@ elif role == "Manager":
     try:
         df_ts = pd.read_csv("timesheets.csv")
     except EmptyDataError:
-        df_ts = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "HoursWorked", "ApprovalStatus"])
+        df_ts = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
     
     pending_ts = df_ts[df_ts["ApprovalStatus"] == "Pending"]
     if pending_ts.empty:
@@ -198,12 +205,22 @@ elif role == "Manager":
         st.dataframe(pending_ts, use_container_width=True)
         for ix, row in pending_ts.iterrows():
             with st.expander(f"Timesheet ID: {row['TimesheetID']} - Employee: {row['EmployeeID']}"):
+                st.write(f"**Task ID:** {row['TaskID']}")
+                st.write(f"**Task Description:** {row['TaskDescription']}")
+                st.write(f"**Hours Worked:** {row['HoursWorked']}")
+                st.write(f"**Date:** {row['Date']}")
+                
                 action = st.radio(f"Decision *", ["Pending", "Approve", "Reject"], key=f"ts{row['TimesheetID']}")
+                manager_comment = st.text_area(f"Reason for Decision", placeholder="Enter reason for approval/rejection", key=f"comment_ts{row['TimesheetID']}", height=80)
+                
                 if st.button(f"Update", key=f"btn_ts{row['TimesheetID']}"):
                     if action == "Pending":
                         st.warning("Please select Approve or Reject")
+                    elif not manager_comment or not manager_comment.strip():
+                        st.error("Please provide a reason for your decision")
                     else:
                         df_ts.loc[ix, "ApprovalStatus"] = action
+                        df_ts.loc[ix, "ManagerComment"] = manager_comment.strip()
                         df_ts.to_csv("timesheets.csv", index=False)
                         st.success(f"Timesheet updated to {action}!")
                         st.rerun()
@@ -213,7 +230,7 @@ elif role == "Manager":
     try:
         df_lv = pd.read_csv("leaves.csv")
     except EmptyDataError:
-        df_lv = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Status"])
+        df_lv = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
     
     pending_lv = df_lv[df_lv["Status"] == "Pending"]
     if pending_lv.empty:
@@ -222,12 +239,22 @@ elif role == "Manager":
         st.dataframe(pending_lv, use_container_width=True)
         for ix, row in pending_lv.iterrows():
             with st.expander(f"Leave ID: {row['LeaveID']} - Employee: {row['EmployeeID']}"):
+                st.write(f"**Leave Type:** {row['Type']}")
+                st.write(f"**Start Date:** {row['StartDate']}")
+                st.write(f"**End Date:** {row['EndDate']}")
+                st.write(f"**Employee Reason:** {row['Reason']}")
+                
                 action = st.radio(f"Decision *", ["Pending", "Approve", "Reject"], key=f"lv{row['LeaveID']}")
+                manager_comment = st.text_area(f"Reason for Decision", placeholder="Enter reason for approval/rejection", key=f"comment_lv{row['LeaveID']}", height=80)
+                
                 if st.button(f"Update", key=f"btn_lv{row['LeaveID']}"):
                     if action == "Pending":
                         st.warning("Please select Approve or Reject")
+                    elif not manager_comment or not manager_comment.strip():
+                        st.error("Please provide a reason for your decision")
                     else:
                         df_lv.loc[ix, "Status"] = action
+                        df_lv.loc[ix, "ManagerComment"] = manager_comment.strip()
                         df_lv.to_csv("leaves.csv", index=False)
                         st.success(f"Leave updated to {action}!")
                         st.rerun()
@@ -281,7 +308,7 @@ elif role == "Admin":
     try:
         ts = pd.read_csv("timesheets.csv")
     except EmptyDataError:
-        ts = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "HoursWorked", "ApprovalStatus"])
+        ts = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
     
     if ts.empty:
         st.info("No timesheets submitted")
@@ -293,7 +320,7 @@ elif role == "Admin":
     try:
         lv = pd.read_csv("leaves.csv")
     except EmptyDataError:
-        lv = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Status"])
+        lv = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
     
     if lv.empty:
         st.info("No leave applications")
