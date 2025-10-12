@@ -95,6 +95,17 @@ def validate_user(email):
         pass
     return None, None, None
 
+def get_my_team_employees(manager_id):
+    """Get list of employee IDs assigned to this manager"""
+    try:
+        df_emp = pd.read_csv("employees.csv")
+        if "ManagerID" not in df_emp.columns:
+            return []
+        my_team = df_emp[df_emp["ManagerID"] == manager_id]["EmployeeID"].tolist()
+        return my_team
+    except:
+        return []
+
 def verify_firebase_password(email, password):
     try:
         user = firebase_auth.get_user_by_email(email)
@@ -238,6 +249,7 @@ with cols[0]:
     st.markdown(f'<div class="user-info" style="margin: 0;">{st.session_state.user_name} ({st.session_state.user_email})</div>', unsafe_allow_html=True)
 
 with cols[1]:
+    # Only Admin can switch views
     if st.session_state.user_role == "Admin":
         view_options = ["Admin", "Manager", "Employee"]
         st.session_state.view_as = st.selectbox("View as:", view_options, index=view_options.index(st.session_state.view_as), label_visibility="collapsed")
@@ -250,8 +262,19 @@ with cols[2]:
 
 st.markdown("---")
 
+# Get actual role and enforce access control
+actual_role = st.session_state.user_role
 role = st.session_state.view_as
 emp_id = st.session_state.employee_id
+
+# Access Control: Prevent unauthorized access
+if actual_role == "Employee" and role != "Employee":
+    st.error("Access Denied: Employees can only access Employee dashboard")
+    st.stop()
+
+if actual_role == "Manager" and role == "Admin":
+    st.error("Access Denied: Managers cannot access Admin dashboard")
+    st.stop()
 
 if role == "Employee":
     st.header("Employee Dashboard")
@@ -361,6 +384,14 @@ if role == "Employee":
 elif role == "Manager":
     st.header("Manager Dashboard")
     
+    # Get manager's team
+    my_team = get_my_team_employees(emp_id)
+    
+    if not my_team:
+        st.info("No employees assigned to you. Contact admin.")
+    else:
+        st.info(f"Managing {len(my_team)} employee(s)")
+    
     st.subheader("Approve Timesheets")
     try:
         df_ts = pd.read_csv("timesheets.csv")
@@ -371,9 +402,11 @@ elif role == "Manager":
     except:
         df_ts = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
     
-    pending_ts = df_ts[df_ts["ApprovalStatus"] == "Pending"]
+    # Filter to only show timesheets from manager's team
+    pending_ts = df_ts[(df_ts["ApprovalStatus"] == "Pending") & (df_ts["EmployeeID"].isin(my_team))]
+    
     if pending_ts.empty:
-        st.info("No pending timesheets")
+        st.info("No pending timesheets from your team")
     else:
         st.dataframe(pending_ts, use_container_width=True)
         for ix, row in pending_ts.iterrows():
@@ -409,9 +442,11 @@ elif role == "Manager":
     except:
         df_lv = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
     
-    pending_lv = df_lv[df_lv["Status"] == "Pending"]
+    # Filter to only show leaves from manager's team
+    pending_lv = df_lv[(df_lv["Status"] == "Pending") & (df_lv["EmployeeID"].isin(my_team))]
+    
     if pending_lv.empty:
-        st.info("No pending leaves")
+        st.info("No pending leave applications from your team")
     else:
         st.dataframe(pending_lv, use_container_width=True)
         for ix, row in pending_lv.iterrows():
