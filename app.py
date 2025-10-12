@@ -494,13 +494,14 @@ if st.session_state.get('show_settings', False):
     st.stop()
 
 header_html = f"""
-<div style="background: {header_bg}; padding: 16px; margin: -1rem calc(-50vw + 50%) 24px calc(-50vw + 50%); box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center;">
-    <div style="max-width: 1200px; width: 100%; display: flex; align-items: center; gap: 16px; padding: 0 3rem;">
-        <img src="data:image/png;base64,{{}}" width="48">
-        <span style="color: #000000; font-size: 20px; font-weight: 700; white-space: nowrap;">Pairx Timesheet Management</span>
+<div style="background: {header_bg}; padding: 12px 16px; margin: -1rem -1.5rem 24px -1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100vw; position: relative; left: 50%; right: 50%; margin-left: -50vw; margin-right: -50vw;">
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 0 16px;">
+        <img src="data:image/png;base64,{{}}" width="40" style="min-width: 40px; flex-shrink: 0;">
+        <span style="color: #000000; font-size: 18px; font-weight: 700;">Pairx Timesheet</span>
     </div>
 </div>
 """
+
 
 try:
     import base64
@@ -879,5 +880,6 @@ elif role == "Admin":
                         st.success(message)
                     else:
                         st.error(f"Error: {message}")
+
 
 
