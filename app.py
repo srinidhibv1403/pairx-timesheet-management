@@ -517,18 +517,43 @@ if st.session_state.get('show_settings', False):
     st.stop()
 
 # Header with settings button in rightmost corner
+# Header without JavaScript button
 header_html = f"""
 <div style="background: {header_bg}; padding: 12px 16px; margin: -1rem -1.5rem 24px -1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100vw; position: relative; left: 50%; right: 50%; margin-left: -50vw; margin-right: -50vw;">
-    <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 0 16px;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <img src="data:image/png;base64,{{}}" width="40" style="min-width: 40px; flex-shrink: 0;">
-            <span style="color: #000000; font-size: 18px; font-weight: 700;">Pairx Timesheet</span>
-        </div>
-        <button onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'settings'}}, '*')" 
-                style="background: #5FA8D3; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; 
-                       font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; 
-                       box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s;">
-            ⚙️
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 0 16px;">
+        <img src="data:image/png;base64,{{}}" width="40" style="min-width: 40px; flex-shrink: 0;">
+        <span style="color: #000000; font-size: 18px; font-weight: 700;">Pairx Timesheet</span>
+    </div>
+</div>
+"""
+
+try:
+    import base64
+    with open("logo.jpg", "rb") as f:
+        logo_data = base64.b64encode(f.read()).decode()
+    st.markdown(header_html.format(logo_data), unsafe_allow_html=True)
+except:
+    st.markdown(header_html.format(""), unsafe_allow_html=True)
+
+# Floating settings button (only show when authenticated)
+if st.session_state.authenticated:
+    st.markdown("""
+    <style>
+    .floating-settings {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 999;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('<div class="floating-settings">', unsafe_allow_html=True)
+    if st.button("⚙️", key="settings_btn"):
+        st.session_state.show_settings = True
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
         </button>
     </div>
 </div>
@@ -931,3 +956,4 @@ elif role == "Admin":
                         st.success(message)
                     else:
                         st.error(f"Error: {message}")
+
