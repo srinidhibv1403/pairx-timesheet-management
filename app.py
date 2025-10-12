@@ -516,8 +516,6 @@ if st.session_state.get('show_settings', False):
     
     st.stop()
 
-# Header with settings button in rightmost corner
-# Header without JavaScript button
 header_html = f"""
 <div style="background: {header_bg}; padding: 12px 16px; margin: -1rem -1.5rem 24px -1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100vw; position: relative; left: 50%; right: 50%; margin-left: -50vw; margin-right: -50vw;">
     <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 0 16px;">
@@ -535,57 +533,16 @@ try:
 except:
     st.markdown(header_html.format(""), unsafe_allow_html=True)
 
-# Floating settings button (only show when authenticated)
-if st.session_state.authenticated:
-    st.markdown("""
-    <style>
-    .floating-settings {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 999;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    st.markdown('<div class="floating-settings">', unsafe_allow_html=True)
-    if st.button("⚙️", key="settings_btn"):
-        st.session_state.show_settings = True
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
-        </button>
-    </div>
-</div>
-<script>
-document.querySelector('button').addEventListener('click', function() {{
-    window.parent.postMessage({{
-        isStreamlitMessage: true,
-        type: 'streamlit:setComponentValue',
-        key: 'settings_btn_header',
-        value: true
-    }}, '*');
-}});
-</script>
-"""
-
-try:
-    import base64
-    with open("logo.jpg", "rb") as f:
-        logo_data = base64.b64encode(f.read()).decode()
-    st.markdown(header_html.format(logo_data), unsafe_allow_html=True)
-except:
-    st.markdown(header_html.format(""), unsafe_allow_html=True)
-
-# Check if settings button was clicked
-if 'settings_btn_header' in st.session_state and st.session_state.get('settings_btn_header'):
-    st.session_state.show_settings = True
-    st.session_state.settings_btn_header = False
-    st.rerun()
-
 if not st.session_state.authenticated:
     firebase_login()
     st.stop()
+
+# Floating settings button
+col_settings = st.columns([10, 1])
+with col_settings[1]:
+    if st.button("⚙️", key="settings_btn"):
+        st.session_state.show_settings = True
+        st.rerun()
 
 cols = st.columns([5, 5])
 with cols[0]:
@@ -618,9 +575,6 @@ if actual_role == "Employee" and role != "Employee":
 if actual_role == "Manager" and role == "Admin":
     st.error("Access Denied")
     st.stop()
-
-# Rest of the dashboard code remains the same...
-# (Employee, Manager, Admin dashboards - keeping the same as before)
 
 if role == "Employee":
     st.header("Employee Dashboard")
@@ -956,4 +910,3 @@ elif role == "Admin":
                         st.success(message)
                     else:
                         st.error(f"Error: {message}")
-
