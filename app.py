@@ -51,24 +51,6 @@ def send_password_reset_email(email):
     except Exception as e:
         return False, str(e)
 
-def verify_google_token(id_token):
-    """Verify Google OAuth token using Firebase"""
-    try:
-        url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key={FIREBASE_WEB_API_KEY}"
-        payload = {
-            "postBody": f"id_token={id_token}&providerId=google.com",
-            "requestUri": "http://localhost",
-            "returnIdpCredential": True,
-            "returnSecureToken": True
-        }
-        response = requests.post(url, json=payload)
-        if response.status_code == 200:
-            data = response.json()
-            return True, data.get("email")
-        return False, None
-    except:
-        return False, None
-
 def check_and_create_csvs():
     files_headers = {
         "employees.csv": "EmployeeID,Name,Email,Department,Role,ManagerID\n",
@@ -190,24 +172,6 @@ def firebase_login():
             if st.button("Forgot Password?", use_container_width=True):
                 st.session_state.show_forgot_password = True
                 st.rerun()
-        
-        st.markdown("---")
-        st.markdown("#### Or sign in with")
-        
-        # Google Sign-In button with HTML/JS
-        google_button_html = f"""
-        <script src="https://accounts.google.com/gsi/client" async defer></script>
-        <div id="g_id_onload"
-             data-client_id="YOUR_GOOGLE_CLIENT_ID"
-             data-callback="handleCredentialResponse">
-        </div>
-        <div class="g_id_signin" data-type="standard"></div>
-        <p style="color: #888; font-size: 0.9rem; margin-top: 0.5rem;">
-        Note: Google Sign-In requires additional configuration in Firebase Console
-        </p>
-        """
-        st.markdown(google_button_html, unsafe_allow_html=True)
-        st.info("For now, use email/password login. Google Sign-In requires Firebase OAuth configuration.")
 
 def logout():
     st.session_state.authenticated = False
@@ -247,13 +211,6 @@ st.markdown(f"""
     .stats-number {{font-size: 2rem; font-weight: bold; color: {button_bg};}}
     .stats-label {{color: {label_text}; font-size: 0.9rem;}}
     .user-info {{background: {input_bg}; padding: 0.5rem 1rem; border-radius: 8px; display: inline-block;}}
-    
-    /* Fix alignment for top bar */
-    div[data-testid="column"] {{
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -276,8 +233,6 @@ if not st.session_state.authenticated:
     firebase_login()
     st.stop()
 
-# Better aligned header
-st.markdown('<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">', unsafe_allow_html=True)
 cols = st.columns([3, 3, 2])
 with cols[0]:
     st.markdown(f'<div class="user-info" style="margin: 0;">{st.session_state.user_name} ({st.session_state.user_email})</div>', unsafe_allow_html=True)
@@ -292,7 +247,6 @@ with cols[1]:
 with cols[2]:
     if st.button("Logout", use_container_width=True):
         logout()
-st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("---")
 
