@@ -228,8 +228,8 @@ st.markdown(f"""
     }}
     
     .block-container {{
-        padding: 1rem 2rem !important;
-        max-width: 1200px !important;
+        padding: 1rem 3rem !important;
+        max-width: 1600px !important;
         margin: 0 auto !important;
     }}
     
@@ -261,6 +261,15 @@ st.markdown(f"""
     
     [data-baseweb="select"] li:hover {{
         background: {button_bg}33 !important;
+    }}
+    
+    /* Radio buttons - visible in both modes */
+    [role="radiogroup"] label {{
+        color: {body_text} !important;
+    }}
+    
+    [role="radiogroup"] label span {{
+        color: {body_text} !important;
     }}
     
     /* Labels */
@@ -423,13 +432,18 @@ if st.session_state.get('show_settings', False):
     else:
         st.session_state.dark_mode = False
     
-    if st.button("Back to Dashboard"):
-        st.session_state.show_settings = False
-        st.rerun()
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Back to Dashboard", use_container_width=True):
+            st.session_state.show_settings = False
+            st.rerun()
+    with col2:
+        if st.button("Logout", use_container_width=True):
+            logout()
     st.stop()
 
 header_html = f"""
-<div style="background: {header_bg}; padding: 16px 32px; margin: -1rem -2rem 24px -2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: space-between;">
+<div style="background: {header_bg}; padding: 16px 48px; margin: -1rem -3rem 24px -3rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: space-between;">
     <div style="display: flex; align-items: center; gap: 16px;">
         <img src="data:image/png;base64,{{}}" width="48">
         <span style="color: #000000; font-size: 20px; font-weight: 700; white-space: nowrap;">Pairx Timesheet Management</span>
@@ -818,3 +832,6 @@ elif role == "Admin":
                         st.success(message)
                     else:
                         st.error(f"Error: {message}")
+
+
+
