@@ -419,6 +419,55 @@ st.markdown(f"""
     .element-container:has(> .stMarkdown:empty) {{
         display: none;
     }}
+        
+    /* Mobile Responsive */
+    @media (max-width: 768px) {{
+        .block-container {{
+            padding: 0.75rem 1rem !important;
+        }}
+        
+        h1 {{
+            font-size: 22px !important;
+        }}
+        
+        h2 {{
+            font-size: 18px !important;
+        }}
+        
+        h3 {{
+            font-size: 15px !important;
+        }}
+        
+        .user-info {{
+            font-size: 12px !important;
+            padding: 6px 12px !important;
+        }}
+        
+        .stButton > button,
+        .stFormSubmitButton > button {{
+            font-size: 13px !important;
+            padding: 8px 16px !important;
+        }}
+        
+        .stTextInput > div > div > input,
+        .stNumberInput > div > div > input,
+        .stDateInput > div > div > input,
+        .stSelectbox > div > div,
+        .stTextArea > div > div > textarea {{
+            font-size: 13px !important;
+            padding: 8px 12px !important;
+        }}
+        
+        label {{
+            font-size: 13px !important;
+        }}
+        
+        [data-testid="column"] {{
+            padding: 0 4px !important;
+        }}
+    }}
+
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -828,3 +877,4 @@ elif role == "Admin":
                         st.success(message)
                     else:
                         st.error(f"Error: {message}")
+
