@@ -26,52 +26,23 @@ if not firebase_admin._apps:
 
 ADMIN_EMAIL = "srinidhibv.cs23@bmsce.ac.in"
 ALLOWED_DOMAINS = ["@persist-ai.com", "@pairx.com"]
-
-# Firebase Web API Key - Get this from Firebase Console > Project Settings > General
 FIREBASE_WEB_API_KEY = st.secrets.get("firebase_web_api_key", "YOUR_WEB_API_KEY")
 
 def generate_password(length=12):
-    """Generate a random secure password"""
     chars = string.ascii_letters + string.digits + "!@#$%&*"
     return ''.join(secrets.choice(chars) for _ in range(length))
 
 def send_password_email(email, password, name):
-    """
-    Send password to user via email
-    For production, use SendGrid, AWS SES, or similar email service
-    """
     try:
-        # Placeholder for email sending
-        # You need to implement this with your preferred email service
-        
-        # Example using SendGrid (you'd need to install sendgrid package):
-        # from sendgrid import SendGridAPIClient
-        # from sendgrid.helpers.mail import Mail
-        # message = Mail(
-        #     from_email='noreply@pairx.com',
-        #     to_emails=email,
-        #     subject='Your Pairx Timesheet Account',
-        #     html_content=f'<p>Hello {name},</p><p>Your account has been created.</p><p>Email: {email}</p><p>Temporary Password: {password}</p><p>Please login and change your password.</p>')
-        # sg = SendGridAPIClient(st.secrets['SENDGRID_API_KEY'])
-        # response = sg.send(message)
-        
-        # For now, just return success (you'll see password in UI)
         return True, "Email would be sent (email service not configured)"
     except Exception as e:
         return False, str(e)
 
 def send_password_reset_email(email):
-    """
-    Send password reset email using Firebase REST API
-    """
     try:
         url = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_WEB_API_KEY}"
-        payload = {
-            "requestType": "PASSWORD_RESET",
-            "email": email
-        }
+        payload = {"requestType": "PASSWORD_RESET", "email": email}
         response = requests.post(url, json=payload)
-        
         if response.status_code == 200:
             return True, "Password reset email sent successfully"
         else:
@@ -140,7 +111,7 @@ def firebase_login():
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("Send Reset Link"):
+            if st.button("Send Reset Link", use_container_width=True):
                 if not reset_email:
                     st.error("Please enter your email")
                 else:
@@ -150,55 +121,56 @@ def firebase_login():
                         st.info("Check your email for password reset link")
                     else:
                         st.error(f"Error: {message}")
-        
         with col2:
-            if st.button("Back to Login"):
+            if st.button("Back to Login", use_container_width=True):
                 st.session_state.show_forgot_password = False
                 st.rerun()
     else:
-        with st.form("login_form"):
-            email = st.text_input("Email Address", placeholder="your.email@pairx.com")
-            password = st.text_input("Password", type="password")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                submit = st.form_submit_button("Sign In")
-            with col2:
-                forgot = st.form_submit_button("Forgot Password?")
-            
-            if forgot:
-                st.session_state.show_forgot_password = True
-                st.rerun()
-            
-            if submit:
+        email = st.text_input("Email Address", placeholder="your.email@pairx.com")
+        password = st.text_input("Password", type="password")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Sign In", use_container_width=True):
                 if not email or not password:
                     st.error("Please enter both email and password")
-                    return
-                
-                exists, user = verify_firebase_password(email, password)
-                
-                if not exists:
-                    st.error("Invalid email or user not found. Contact admin.")
-                    return
-                
-                if email != ADMIN_EMAIL:
-                    if not any(email.endswith(domain) for domain in ALLOWED_DOMAINS):
-                        st.error(f"Access denied. Only {', '.join(ALLOWED_DOMAINS)} emails allowed.")
-                        return
-                
-                role, emp_id, name = validate_user(email)
-                
-                if not role:
-                    st.error("Email not found in employee database. Contact admin.")
-                    return
-                
-                st.session_state.authenticated = True
-                st.session_state.user_email = email
-                st.session_state.user_role = role
-                st.session_state.employee_id = emp_id
-                st.session_state.user_name = name
-                st.session_state.view_as = role
-                st.success(f"Welcome {name}!")
+                else:
+                    exists, user = verify_firebase_password(email, password)
+                    if not exists:
+                        st.error("Invalid email or user not found. Contact admin.")
+                    elif email != ADMIN_EMAIL:
+                        if not any(email.endswith(domain) for domain in ALLOWED_DOMAINS):
+                            st.error(f"Access denied. Only {', '.join(ALLOWED_DOMAINS)} emails allowed.")
+                        else:
+                            role, emp_id, name = validate_user(email)
+                            if not role:
+                                st.error("Email not found in employee database. Contact admin.")
+                            else:
+                                st.session_state.authenticated = True
+                                st.session_state.user_email = email
+                                st.session_state.user_role = role
+                                st.session_state.employee_id = emp_id
+                                st.session_state.user_name = name
+                                st.session_state.view_as = role
+                                st.success(f"Welcome {name}!")
+                                st.rerun()
+                    else:
+                        role, emp_id, name = validate_user(email)
+                        if not role:
+                            st.error("Email not found in employee database. Contact admin.")
+                        else:
+                            st.session_state.authenticated = True
+                            st.session_state.user_email = email
+                            st.session_state.user_role = role
+                            st.session_state.employee_id = emp_id
+                            st.session_state.user_name = name
+                            st.session_state.view_as = role
+                            st.success(f"Welcome {name}!")
+                            st.rerun()
+        
+        with col2:
+            if st.button("Forgot Password?", use_container_width=True):
+                st.session_state.show_forgot_password = True
                 st.rerun()
 
 def logout():
@@ -261,18 +233,18 @@ if not st.session_state.authenticated:
     firebase_login()
     st.stop()
 
-col1, col2, col3 = st.columns([3, 2, 1])
-with col1:
+cols = st.columns([2, 2, 1])
+with cols[0]:
     st.markdown(f'<div class="user-info">{st.session_state.user_name} ({st.session_state.user_email})</div>', unsafe_allow_html=True)
 
-with col2:
+with cols[1]:
     if st.session_state.user_role == "Admin":
         view_options = ["Admin", "Manager", "Employee"]
         st.session_state.view_as = st.selectbox("View as:", view_options, index=view_options.index(st.session_state.view_as))
     else:
         st.markdown(f'<div class="user-info">Role: {st.session_state.user_role}</div>', unsafe_allow_html=True)
 
-with col3:
+with cols[2]:
     if st.button("Logout"):
         logout()
 
@@ -455,7 +427,11 @@ elif role == "Admin":
         create = st.form_submit_button("Create User")
         
         if create:
-            if new_email and new_name:
+            if not new_email or not new_name:
+                st.error("All fields are required")
+            elif not any(new_email.endswith(domain) for domain in ALLOWED_DOMAINS):
+                st.error(f"Email must end with {' or '.join(ALLOWED_DOMAINS)}")
+            else:
                 try:
                     auto_password = generate_password()
                     user = firebase_auth.create_user(email=new_email, password=auto_password, display_name=new_name)
@@ -481,7 +457,11 @@ elif role == "Admin":
         send_reset = st.form_submit_button("Send Reset Link")
         
         if send_reset:
-            if reset_email:
+            if not reset_email:
+                st.error("Please enter email")
+            elif not any(reset_email.endswith(domain) for domain in ALLOWED_DOMAINS):
+                st.error(f"Email must end with {' or '.join(ALLOWED_DOMAINS)}")
+            else:
                 success, message = send_password_reset_email(reset_email)
                 if success:
                     st.success(message)
@@ -499,37 +479,51 @@ elif role == "Admin":
         df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
     
     with st.form("add_employee"):
-        emp_id = st.text_input("Employee ID *", placeholder="EMP001")
+        emp_id_input = st.text_input("Employee ID *", placeholder="EMP001")
         emp_name = st.text_input("Name *", placeholder="John Doe")
         emp_email = st.text_input("Email *", placeholder="john@pairx.com")
         emp_dept = st.text_input("Department *", placeholder="Engineering")
-        emp_role = st.selectbox("Role *", ["Employee", "Manager", "Admin"])
+        emp_role_input = st.selectbox("Role *", ["Employee", "Manager", "Admin"])
         
-        manager_list = ["None"]
-        if not df_emp.empty:
-            managers = df_emp[df_emp["Role"].isin(["Manager", "Admin"])][["EmployeeID", "Name"]].values
-            manager_list.extend([f"{m[0]} - {m[1]}" for m in managers])
+        selected_manager = "None"
+        if emp_role_input == "Employee":
+            manager_list = ["None"]
+            if not df_emp.empty:
+                managers = df_emp[df_emp["Role"].isin(["Manager", "Admin"])][["EmployeeID", "Name"]].values
+                manager_list.extend([f"{m[0]} - {m[1]}" for m in managers])
+            selected_manager = st.selectbox("Assign Manager", manager_list)
+        else:
+            st.info("Manager assignment is only for employees")
         
-        selected_manager = st.selectbox("Assign Manager", manager_list)
         add = st.form_submit_button("Add to Database")
         
         if add:
-            if emp_id and emp_name and emp_email and emp_dept:
-                if emp_id in df_emp["EmployeeID"].astype(str).values:
-                    st.error("Employee ID already exists")
-                elif emp_email in df_emp["Email"].values:
-                    st.error("Email already exists")
-                else:
-                    manager_id = "" if selected_manager == "None" else selected_manager.split(" - ")[0]
-                    new_row = pd.DataFrame([[emp_id, emp_name, emp_email, emp_dept, emp_role, manager_id]], 
-                                          columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
-                    out = pd.concat([df_emp, new_row], ignore_index=True)
-                    out.to_csv("employees.csv", index=False)
-                    st.success(f"Added {emp_name} to database")
-                    st.rerun()
+            if not emp_id_input or not emp_name or not emp_email or not emp_dept:
+                st.error("All fields are required")
+            elif not any(emp_email.endswith(domain) for domain in ALLOWED_DOMAINS):
+                st.error(f"Email must end with {' or '.join(ALLOWED_DOMAINS)}")
+            elif emp_id_input in df_emp["EmployeeID"].astype(str).values:
+                st.error("Employee ID already exists")
+            elif emp_email in df_emp["Email"].values:
+                st.error("Email already exists in database")
+            else:
+                manager_id = "" if selected_manager == "None" else selected_manager.split(" - ")[0]
+                new_row = pd.DataFrame([[emp_id_input, emp_name, emp_email, emp_dept, emp_role_input, manager_id]], 
+                                      columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
+                out = pd.concat([df_emp, new_row], ignore_index=True)
+                out.to_csv("employees.csv", index=False)
+                st.success(f"Added {emp_name} to database")
+                st.rerun()
     
     st.markdown("---")
     st.subheader("Manage Employees")
+    
+    try:
+        df_emp = pd.read_csv("employees.csv")
+        if "ManagerID" not in df_emp.columns:
+            df_emp["ManagerID"] = ""
+    except:
+        df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
     
     if df_emp.empty:
         st.info("No employees in database")
@@ -540,13 +534,14 @@ elif role == "Admin":
         
         st.markdown("### Delete Employee")
         delete_options = [f"{row['EmployeeID']} - {row['Name']} ({row['Email']})" for _, row in df_emp.iterrows()]
-        to_delete = st.selectbox("Select employee to delete", ["Select..."] + delete_options)
+        to_delete = st.selectbox("Select employee to delete", ["Select..."] + delete_options, key="delete_selector")
         
         if to_delete != "Select...":
-            if st.button("Delete", key="delete_btn"):
+            if st.button("Delete Employee", key="delete_btn"):
                 emp_id_to_delete = to_delete.split(" - ")[0]
-                df_emp = df_emp[df_emp["EmployeeID"] != emp_id_to_delete]
-                df_emp.to_csv("employees.csv", index=False)
+                df_emp_fresh = pd.read_csv("employees.csv")
+                df_emp_fresh = df_emp_fresh[df_emp_fresh["EmployeeID"].astype(str) != emp_id_to_delete]
+                df_emp_fresh.to_csv("employees.csv", index=False)
                 st.success(f"Deleted employee {emp_id_to_delete}")
                 st.rerun()
             st.warning("This removes from database only. Firebase account remains.")
