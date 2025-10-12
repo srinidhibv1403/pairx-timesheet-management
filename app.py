@@ -66,15 +66,10 @@ def generate_password(length=12):
 
 def send_password_email(email, password, name):
     try:
-        return True, "Email would be sent (email service not configured)"
-    except Exception as e:
-        return False, str(e)
-
-def send_password_email(email, password, name):
-    try:
         import smtplib
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
+        import ssl
         
         smtp_server = st.secrets["email"]["smtp_server"]
         smtp_port = st.secrets["email"]["smtp_port"]
@@ -99,7 +94,6 @@ def send_password_email(email, password, name):
                 <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <code style="background: #e8e8e8; padding: 5px 10px; border-radius: 3px; font-size: 16px;">{password}</code></p>
               </div>
               <p><strong>Important:</strong> Please change your password after your first login for security purposes.</p>
-              <p>You can login at: <a href="https://your-app-url.streamlit.app">Pairx Timesheet</a></p>
               <br>
               <p>Best regards,<br><strong>Pairx Team</strong></p>
             </div>
@@ -110,8 +104,12 @@ def send_password_email(email, password, name):
         part = MIMEText(html, "html")
         message.attach(part)
         
+        context = ssl.create_default_context()
+        
         with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
+            server.ehlo()
+            server.starttls(context=context)
+            server.ehlo()
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, email, message.as_string())
         
@@ -119,6 +117,18 @@ def send_password_email(email, password, name):
     except Exception as e:
         return False, f"Failed to send email: {str(e)}"
 
+def send_password_reset_email(email):
+    try:
+        url = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_WEB_API_KEY}"
+        payload = {"requestType": "PASSWORD_RESET", "email": email}
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            return True, "Password reset email sent successfully"
+        else:
+            error_data = response.json()
+            return False, error_data.get("error", {}).get("message", "Failed to send reset email")
+    except Exception as e:
+        return False, str(e)
 
 def validate_user(email):
     if email == ADMIN_EMAIL:
@@ -270,7 +280,6 @@ st.markdown(f"""
         margin: 0 auto !important;
     }}
     
-    /* Remove ALL weird lines from selectbox */
     [data-baseweb="select"] {{
         border: none !important;
     }}
@@ -300,7 +309,6 @@ st.markdown(f"""
         background: {button_bg}33 !important;
     }}
     
-    /* Fix toggle/checkbox text visibility */
     .stCheckbox label {{
         color: {body_text} !important;
     }}
@@ -309,7 +317,6 @@ st.markdown(f"""
         color: {body_text} !important;
     }}
     
-    /* Labels */
     label {{
         color: {label_text} !important;
         font-weight: 600 !important;
@@ -317,7 +324,6 @@ st.markdown(f"""
         margin-bottom: 6px !important;
     }}
     
-    /* Inputs */
     .stTextInput > div > div > input,
     .stNumberInput > div > div > input,
     .stDateInput > div > div > input,
@@ -332,7 +338,6 @@ st.markdown(f"""
         line-height: 1.5 !important;
     }}
     
-    /* Buttons */
     .stButton > button,
     .stFormSubmitButton > button,
     .stDownloadButton > button {{
@@ -353,7 +358,6 @@ st.markdown(f"""
         transform: translateY(-1px);
     }}
     
-    /* Tabs */
     .stTabs [data-baseweb="tab-list"] {{
         gap: 8px;
         background-color: transparent;
@@ -375,7 +379,6 @@ st.markdown(f"""
         color: {button_text};
     }}
     
-    /* Headers */
     h1 {{
         font-size: 28px !important;
         font-weight: 700 !important;
@@ -397,7 +400,6 @@ st.markdown(f"""
         margin: 12px 0 8px 0 !important;
     }}
     
-    /* Dividers */
     hr {{
         border: none !important;
         height: 1px !important;
@@ -406,7 +408,6 @@ st.markdown(f"""
         opacity: 0.3 !important;
     }}
     
-    /* User info badge */
     .user-info {{
         background: {input_bg};
         padding: 8px 16px;
@@ -416,12 +417,10 @@ st.markdown(f"""
         font-weight: 600;
     }}
     
-    /* Dataframes */
     .stDataFrame {{
         font-size: 14px !important;
     }}
     
-    /* Expanders */
     .streamlit-expanderHeader {{
         background: {input_bg} !important;
         border-radius: 8px !important;
@@ -432,14 +431,12 @@ st.markdown(f"""
         font-size: 14px !important;
     }}
     
-    /* Alerts */
     .stAlert {{
         border-radius: 8px !important;
         padding: 12px !important;
         font-size: 14px !important;
     }}
     
-    /* Forms */
     .stForm {{
         border: 1px solid #2d4057;
         border-radius: 12px;
@@ -447,40 +444,32 @@ st.markdown(f"""
         background: {input_bg}22;
     }}
     
-    /* Column spacing */
     [data-testid="column"] {{
         padding: 0 8px !important;
     }}
     
-    /* Hide empty */
     .element-container:has(> .stMarkdown:empty) {{
         display: none;
     }}
-        
-        
-    /* Mobile Responsive - Keep desktop look, just adjust spacing */
+    
     @media (max-width: 768px) {{
         .block-container {{
             padding: 1rem 1.5rem !important;
         }}
         
-        /* Smaller header padding on mobile */
         .user-info {{
             font-size: 13px !important;
         }}
         
-        /* Make dataframes scrollable */
         .stDataFrame {{
             overflow-x: auto !important;
         }}
         
-        /* Better column stacking on mobile */
         [data-testid="column"] {{
             min-width: 0 !important;
         }}
     }}
     
-    /* Very small mobile devices */
     @media (max-width: 480px) {{
         .block-container {{
             padding: 0.75rem 1rem !important;
@@ -504,9 +493,6 @@ st.markdown(f"""
             padding: 6px 12px !important;
         }}
     }}
-
-
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -538,7 +524,6 @@ header_html = f"""
     </div>
 </div>
 """
-
 
 try:
     import base64
@@ -818,7 +803,14 @@ elif role == "Admin":
                         auto_password = generate_password()
                         user = firebase_auth.create_user(email=new_email, password=auto_password, display_name=new_name)
                         st.success(f"User created: {user.email}")
-                        if not send_email:
+                        if send_email:
+                            success, msg = send_password_email(new_email, auto_password, new_name)
+                            if success:
+                                st.success("Password sent to user's email")
+                            else:
+                                st.warning(f"User created but email failed: {msg}")
+                                st.info(f"Password: {auto_password}")
+                        else:
                             st.info(f"Password: {auto_password}")
                     except Exception as e:
                         st.error(f"Error: {e}")
@@ -917,7 +909,3 @@ elif role == "Admin":
                         st.success(message)
                     else:
                         st.error(f"Error: {message}")
-
-
-
-
