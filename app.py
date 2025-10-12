@@ -213,214 +213,202 @@ else:
 
 st.markdown(f"""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
+    * {{
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }}
+    
     #MainMenu, footer, header {{visibility: hidden;}}
     [data-testid="stSidebar"] {{display: none;}}
-    .stApp {{background: {page_bg}; font-family: 'Segoe UI', sans-serif; color: {body_text};}}
-    .block-container {{padding: 0.75rem 1.5rem !important; max-width: 100% !important;}}
-    .element-container {{margin-bottom: 0.5rem !important;}}
-    div[data-testid="stVerticalBlock"] > div {{gap: 0.5rem !important;}}
     
-    label {{
-        color: {label_text} !important; 
-        font-weight: 600 !important;
-        font-size: 0.85rem !important;
-        margin-bottom: 0.25rem !important;
+    .stApp {{
+        background: {page_bg};
+        color: {body_text};
     }}
     
-    .stTextInput > div > div > input, 
-    .stNumberInput > div > div > input, 
-    .stDateInput > div > div > input,
-    .stSelectbox > div > div, 
-    .stTextArea > div > div > textarea {{
-        background: {input_bg} !important; 
-        color: {input_text} !important;
-        border: 1px solid #2d4057 !important; 
-        border-radius: 6px !important; 
-        padding: 0.5rem 0.75rem !important;
-        font-size: 0.9rem !important;
-        transition: all 0.2s ease !important;
+    .block-container {{
+        padding: 1rem 2rem !important;
+        max-width: 1200px !important;
+        margin: 0 auto !important;
     }}
     
-    .stTextInput > div > div > input:focus,
-    .stNumberInput > div > div > input:focus,
-    .stDateInput > div > div > input:focus,
-    .stSelectbox > div > div:focus,
-    .stTextArea > div > div > textarea:focus {{
-        border-color: {button_bg} !important;
-        box-shadow: 0 0 0 2px {button_bg}33 !important;
-    }}
-    
-    .stButton > button, .stFormSubmitButton > button {{
-        background: {button_bg} !important; 
-        color: {button_text} !important;
-        border-radius: 6px !important; 
-        padding: 0.5rem 1.5rem !important;
-        font-weight: 600 !important; 
-        width: 100%;
-        font-size: 0.9rem !important;
-        transition: all 0.2s ease-in-out !important;
+    /* Remove ALL weird lines from selectbox */
+    [data-baseweb="select"] {{
         border: none !important;
     }}
     
-    .stButton > button:hover, .stFormSubmitButton > button:hover {{
-        transform: translateY(-1px) !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
-        filter: brightness(1.1) !important;
+    [data-baseweb="select"] > div {{
+        border: none !important;
+        border-bottom: none !important;
+        box-shadow: none !important;
     }}
     
-    .stButton > button:active, .stFormSubmitButton > button:active {{
-        transform: translateY(0) !important;
+    [data-baseweb="select"] > div > div {{
+        border-bottom: none !important;
     }}
     
+    [data-baseweb="select"] ul {{
+        background: {input_bg} !important;
+        border: 1px solid #2d4057 !important;
+        border-radius: 8px !important;
+    }}
+    
+    [data-baseweb="select"] li {{
+        background: {input_bg} !important;
+        color: {body_text} !important;
+    }}
+    
+    [data-baseweb="select"] li:hover {{
+        background: {button_bg}33 !important;
+    }}
+    
+    /* Labels */
+    label {{
+        color: {label_text} !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        margin-bottom: 6px !important;
+    }}
+    
+    /* Inputs */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input,
+    .stDateInput > div > div > input,
+    .stSelectbox > div > div,
+    .stTextArea > div > div > textarea {{
+        background: {input_bg} !important;
+        color: {input_text} !important;
+        border: 1px solid #2d4057 !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+        font-size: 14px !important;
+        line-height: 1.5 !important;
+    }}
+    
+    /* Buttons */
+    .stButton > button,
+    .stFormSubmitButton > button,
+    .stDownloadButton > button {{
+        background: {button_bg} !important;
+        color: {button_text} !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 10px 24px !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        width: 100%;
+        transition: all 0.2s;
+    }}
+    
+    .stButton > button:hover,
+    .stFormSubmitButton > button:hover {{
+        opacity: 0.9;
+        transform: translateY(-1px);
+    }}
+    
+    /* Tabs */
     .stTabs [data-baseweb="tab-list"] {{
-        gap: 0.5rem;
+        gap: 8px;
         background-color: transparent;
-        padding: 0 !important;
-        margin-bottom: 1rem !important;
+        border-bottom: none !important;
     }}
     
     .stTabs [data-baseweb="tab"] {{
         background-color: {input_bg};
         color: {body_text};
-        border-radius: 6px;
-        padding: 0.5rem 1.25rem;
+        border-radius: 8px;
+        padding: 10px 20px;
         font-weight: 600;
-        font-size: 0.9rem;
-        transition: all 0.2s ease-in-out;
-        border: 1px solid transparent;
-    }}
-    
-    .stTabs [data-baseweb="tab"]:hover {{
-        background-color: {button_bg}22;
-        border-color: {button_bg}44;
+        font-size: 14px;
+        border: none !important;
     }}
     
     .stTabs [aria-selected="true"] {{
         background-color: {button_bg};
         color: {button_text};
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }}
     
-    .stTabs [data-baseweb="tab-panel"] {{
-        animation: fadeIn 0.3s ease-in;
-    }}
-    
-    @keyframes fadeIn {{
-        from {{
-            opacity: 0;
-            transform: translateY(10px);
-        }}
-        to {{
-            opacity: 1;
-            transform: translateY(0);
-        }}
-    }}
-    
+    /* Headers */
     h1 {{
-        color: {body_text} !important;
-        font-size: 1.75rem !important;
-        margin: 0.5rem 0 !important;
+        font-size: 28px !important;
         font-weight: 700 !important;
+        color: {body_text} !important;
+        margin: 16px 0 !important;
     }}
     
     h2 {{
-        color: {body_text} !important;
-        font-size: 1.35rem !important;
-        margin: 0.75rem 0 0.5rem 0 !important;
+        font-size: 20px !important;
         font-weight: 600 !important;
+        color: {body_text} !important;
+        margin: 16px 0 12px 0 !important;
     }}
     
     h3 {{
-        color: {body_text} !important;
-        font-size: 1.1rem !important;
-        margin: 0.5rem 0 0.25rem 0 !important;
+        font-size: 16px !important;
         font-weight: 600 !important;
+        color: {body_text} !important;
+        margin: 12px 0 8px 0 !important;
     }}
     
+    /* Dividers */
     hr {{
         border: none !important;
         height: 1px !important;
         background: #2d4057 !important;
-        margin: 1rem 0 !important;
+        margin: 24px 0 !important;
         opacity: 0.3 !important;
     }}
     
-    .stDataFrame {{
-        border-radius: 6px !important;
-        overflow: hidden !important;
-        font-size: 0.85rem !important;
+    /* User info badge */
+    .user-info {{
+        background: {input_bg};
+        padding: 8px 16px;
+        border-radius: 20px;
+        display: inline-block;
+        font-size: 14px;
+        font-weight: 600;
     }}
     
+    /* Dataframes */
+    .stDataFrame {{
+        font-size: 14px !important;
+    }}
+    
+    /* Expanders */
     .streamlit-expanderHeader {{
         background: {input_bg} !important;
-        border-radius: 6px !important;
+        border-radius: 8px !important;
         border: 1px solid #2d4057 !important;
         font-weight: 600 !important;
         color: {body_text} !important;
-        padding: 0.5rem 0.75rem !important;
-        font-size: 0.9rem !important;
-        transition: all 0.2s ease !important;
+        padding: 12px !important;
+        font-size: 14px !important;
     }}
     
-    .streamlit-expanderHeader:hover {{
-        background: {button_bg}22 !important;
-        border-color: {button_bg}44 !important;
-    }}
-    
+    /* Alerts */
     .stAlert {{
-        border-radius: 6px !important;
-        border: none !important;
-        padding: 0.5rem 0.75rem !important;
-        font-size: 0.9rem !important;
-        animation: slideIn 0.3s ease-out;
+        border-radius: 8px !important;
+        padding: 12px !important;
+        font-size: 14px !important;
     }}
     
-    @keyframes slideIn {{
-        from {{
-            opacity: 0;
-            transform: translateX(-10px);
-        }}
-        to {{
-            opacity: 1;
-            transform: translateX(0);
-        }}
-    }}
-    
-    .user-info {{
-        background: {input_bg}; 
-        padding: 0.4rem 0.9rem; 
-        border-radius: 20px; 
-        display: inline-block;
-        font-size: 0.85rem;
-        font-weight: 600;
-        transition: all 0.2s ease;
-    }}
-    
-    .user-info:hover {{
-        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }}
-    
-    .element-container:has(> .stMarkdown:empty) {{
-        display: none;
-    }}
-    
+    /* Forms */
     .stForm {{
         border: 1px solid #2d4057;
-        border-radius: 8px;
-        padding: 1rem;
+        border-radius: 12px;
+        padding: 20px;
         background: {input_bg}22;
     }}
     
+    /* Column spacing */
     [data-testid="column"] {{
-        padding: 0 0.5rem !important;
+        padding: 0 8px !important;
     }}
     
-    .main > div {{
-        padding-top: 0.5rem !important;
-    }}
-    
-    [data-baseweb="select"]>div {{
-        border-bottom: none !important;
+    /* Hide empty */
+    .element-container:has(> .stMarkdown:empty) {{
+        display: none;
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -441,10 +429,10 @@ if st.session_state.get('show_settings', False):
     st.stop()
 
 header_html = f"""
-<div style="background: {header_bg}; padding: 0.75rem 1.5rem; margin: -0.75rem -1.5rem 0.75rem -1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: space-between;">
-    <div style="display: flex; align-items: center;">
-        <img src="data:image/png;base64,{{}}" width="50" style="margin-right: 0.75rem;">
-        <span style="color: #000000; font-size: 1.5rem; font-weight: 700; font-family: 'Segoe UI', sans-serif; white-space: nowrap;">Pairx Timesheet Management</span>
+<div style="background: {header_bg}; padding: 16px 32px; margin: -1rem -2rem 24px -2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <img src="data:image/png;base64,{{}}" width="48">
+        <span style="color: #000000; font-size: 20px; font-weight: 700; white-space: nowrap;">Pairx Timesheet Management</span>
     </div>
 </div>
 """
@@ -467,9 +455,9 @@ if not st.session_state.authenticated:
     firebase_login()
     st.stop()
 
-cols = st.columns([3, 3, 2])
+cols = st.columns([4, 4, 2])
 with cols[0]:
-    st.markdown(f'<div class="user-info">{st.session_state.user_name} ({st.session_state.user_email})</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="user-info">{st.session_state.user_name}</div>', unsafe_allow_html=True)
 
 with cols[1]:
     actual_role = st.session_state.user_role
@@ -481,7 +469,7 @@ with cols[1]:
         view_options = ["Employee"]
     
     if len(view_options) > 1:
-        st.session_state.view_as = st.selectbox("View as:", view_options, index=view_options.index(st.session_state.view_as or actual_role), label_visibility="collapsed")
+        st.session_state.view_as = st.selectbox("View as", view_options, index=view_options.index(st.session_state.view_as or actual_role), label_visibility="collapsed")
     else:
         st.markdown(f'<div class="user-info">Role: {actual_role}</div>', unsafe_allow_html=True)
 
@@ -517,7 +505,7 @@ if role == "Employee":
         with col2:
             hours = st.number_input("Hours Worked", min_value=0.0, step=0.5)
         
-        task_desc = st.text_area("Task Description", height=80)
+        task_desc = st.text_area("Task Description", height=100)
         
         if st.button("Submit Timesheet"):
             if not task_id or not task_desc or hours <= 0:
@@ -569,7 +557,7 @@ if role == "Employee":
             days = (end - start).days + 1
             st.info(f"Duration: {days} days")
         
-        leave_reason = st.text_area("Reason", height=80)
+        leave_reason = st.text_area("Reason", height=100)
         
         if st.button("Submit Leave Request"):
             if start > end or not leave_reason:
@@ -650,7 +638,7 @@ elif role == "Manager":
                     with col1:
                         action = st.radio("Decision", ["Pending", "Approve", "Reject"], key=f"ts{row['TimesheetID']}")
                     with col2:
-                        comment = st.text_area("Comment", key=f"cmt_ts{row['TimesheetID']}", height=70)
+                        comment = st.text_area("Comment", key=f"cmt_ts{row['TimesheetID']}", height=80)
                     
                     if st.button("Update", key=f"btn_ts{row['TimesheetID']}"):
                         if action == "Pending":
@@ -690,7 +678,7 @@ elif role == "Manager":
                     with col1:
                         action = st.radio("Decision", ["Pending", "Approve", "Reject"], key=f"lv{row['LeaveID']}")
                     with col2:
-                        comment = st.text_area("Comment", key=f"cmt_lv{row['LeaveID']}", height=70)
+                        comment = st.text_area("Comment", key=f"cmt_lv{row['LeaveID']}", height=80)
                     
                     if st.button("Update", key=f"btn_lv{row['LeaveID']}"):
                         if action == "Pending":
