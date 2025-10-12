@@ -3,12 +3,18 @@ import pandas as pd
 from PIL import Image
 import os
 from pandas.errors import EmptyDataError
+from datetime import datetime, timedelta
 
+# Page config
 st.set_page_config(page_title="Pairx Timesheet", layout="wide")
+
+# Admin email and allowed domains
+ADMIN_EMAIL = "srinidhibv.cs23@bmsce.ac.in"
+ALLOWED_DOMAINS = ["@persist-ai.com", "@pairx.com"]
 
 def check_and_create_csvs():
     files_headers = {
-        "employees.csv": "EmployeeID,Name,Department,Role,ManagerID\n",
+        "employees.csv": "EmployeeID,Name,Email,Department,Role,ManagerID\n",
         "projects.csv": "ProjectID,ProjectName,StartDate,EndDate\n",
         "tasks.csv": "TaskID,ProjectID,AssignedTo,Status\n",
         "timesheets.csv": "TimesheetID,EmployeeID,Date,TaskID,TaskDescription,HoursWorked,ApprovalStatus,ManagerComment\n",
@@ -21,6 +27,95 @@ def check_and_create_csvs():
 
 check_and_create_csvs()
 
+# Initialize session state
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'user_email' not in st.session_state:
+    st.session_state.user_email = None
+if 'user_role' not in st.session_state:
+    st.session_state.user_role = None
+if 'employee_id' not in st.session_state:
+    st.session_state.employee_id = None
+
+def validate_email(email):
+    """Validate if email is authorized"""
+    # Admin is always allowed
+    if email == ADMIN_EMAIL:
+        return True, "Admin"
+    
+    # Check if email has allowed domain
+    has_valid_domain = any(email.endswith(domain) for domain in ALLOWED_DOMAINS)
+    
+    if not has_valid_domain:
+        return False, None
+    
+    # Check if email is in employees database
+    try:
+        df_emp = pd.read_csv("employees.csv")
+        if "Email" not in df_emp.columns:
+            df_emp["Email"] = ""
+        
+        employee = df_emp[df_emp["Email"] == email]
+        if not employee.empty:
+            return True, employee.iloc[0]["Role"]
+        else:
+            return False, None
+    except:
+        return False, None
+
+def google_sign_in():
+    """Email-based authentication"""
+    st.subheader("Sign In")
+    
+    st.info(f"Allowed domains: {', '.join(ALLOWED_DOMAINS)} and admin email: {ADMIN_EMAIL}")
+    
+    email = st.text_input("Enter your email address", placeholder="name@pairx.com or name@persist-ai.com")
+    
+    if st.button("Sign In"):
+        if not email:
+            st.error("Please enter your email address")
+            return
+        
+        is_valid, role = validate_email(email)
+        
+        if is_valid:
+            st.session_state.authenticated = True
+            st.session_state.user_email = email
+            
+            # Set role and employee ID
+            if email == ADMIN_EMAIL:
+                st.session_state.user_role = "Admin"
+                st.session_state.employee_id = "ADMIN001"
+            else:
+                try:
+                    df_emp = pd.read_csv("employees.csv")
+                    if "Email" in df_emp.columns:
+                        employee = df_emp[df_emp["Email"] == email]
+                        if not employee.empty:
+                            st.session_state.user_role = employee.iloc[0]["Role"]
+                            st.session_state.employee_id = employee.iloc[0]["EmployeeID"]
+                except:
+                    st.session_state.user_role = "Employee"
+            
+            st.success(f"Welcome! Signed in as {email}")
+            st.rerun()
+        else:
+            if email == ADMIN_EMAIL:
+                st.error("Admin authentication failed. Please contact support.")
+            elif not any(email.endswith(domain) for domain in ALLOWED_DOMAINS):
+                st.error(f"Access denied. Only emails from {', '.join(ALLOWED_DOMAINS)} or admin email are allowed.")
+            else:
+                st.error("Email not found in employee database. Please contact admin to register your account.")
+
+def logout():
+    """Logout function"""
+    st.session_state.authenticated = False
+    st.session_state.user_email = None
+    st.session_state.user_role = None
+    st.session_state.employee_id = None
+    st.rerun()
+
+# Theme colors
 page_bg = "#0f1419"
 body_text = "#E8EDF2"
 label_text = "#C5CDD6"
@@ -87,6 +182,33 @@ st.markdown(f"""
     hr {{
         border-color: #2d4057 !important;
     }}
+    
+    .stats-card {{
+        background: {input_bg};
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid #2d4057;
+        text-align: center;
+    }}
+    
+    .stats-number {{
+        font-size: 2rem;
+        font-weight: bold;
+        color: {button_bg};
+    }}
+    
+    .stats-label {{
+        color: {label_text};
+        font-size: 0.9rem;
+    }}
+    
+    .user-info {{
+        background: {input_bg};
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        display: inline-block;
+        margin-bottom: 1rem;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -106,29 +228,56 @@ try:
 except:
     st.markdown('<div style="background: #FFFFFF; padding: 1.2rem 2rem; margin: -2rem -2rem 2rem -2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><span style="color: #000000; font-size: 2rem; font-weight: 700; font-family: \'Segoe UI\', sans-serif;">Pairx Timesheet Management</span></div>', unsafe_allow_html=True)
 
-# Role selector
-role = st.selectbox("Select Your Role", ["Employee", "Manager", "Admin"])
+# Check authentication
+if not st.session_state.authenticated:
+    google_sign_in()
+    st.stop()
+
+# Show user info and logout button
+col1, col2 = st.columns([4, 1])
+with col1:
+    st.markdown(f'<div class="user-info">Logged in as: {st.session_state.user_email} | Role: {st.session_state.user_role}</div>', unsafe_allow_html=True)
+with col2:
+    if st.button("Logout"):
+        logout()
+
 st.markdown("---")
+
+# Get role from session
+role = st.session_state.user_role
 
 # EMPLOYEE DASHBOARD
 if role == "Employee":
     st.header("Employee Dashboard")
+    emp_id = st.session_state.employee_id
     
+    # Quick Stats
+    st.subheader("Quick Stats")
+    try:
+        df_ts = pd.read_csv("timesheets.csv")
+        df_lv = pd.read_csv("leaves.csv")
+        
+        my_timesheets = df_ts[df_ts["EmployeeID"] == emp_id]
+        my_leaves = df_lv[df_lv["EmployeeID"] == emp_id]
+        
+        pending_ts = len(my_timesheets[my_timesheets["ApprovalStatus"] == "Pending"])
+        approved_ts = len(my_timesheets[my_timesheets["ApprovalStatus"] == "Approve"])
+        pending_lv = len(my_leaves[my_leaves["Status"] == "Pending"])
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.markdown(f'<div class="stats-card"><div class="stats-number">{len(my_timesheets)}</div><div class="stats-label">Total Timesheets</div></div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown(f'<div class="stats-card"><div class="stats-number">{pending_ts}</div><div class="stats-label">Pending Timesheets</div></div>', unsafe_allow_html=True)
+        with col3:
+            st.markdown(f'<div class="stats-card"><div class="stats-number">{len(my_leaves)}</div><div class="stats-label">Total Leaves</div></div>', unsafe_allow_html=True)
+        with col4:
+            st.markdown(f'<div class="stats-card"><div class="stats-number">{pending_lv}</div><div class="stats-label">Pending Leaves</div></div>', unsafe_allow_html=True)
+    except:
+        pass
+    
+    st.markdown("---")
     st.subheader("Submit Timesheet")
-    emp_id = st.text_input("Employee ID *", placeholder="Enter your Employee ID")
-    
-    # Validate employee exists
-    employee_exists = False
-    if emp_id and emp_id.strip():
-        try:
-            df_emp = pd.read_csv("employees.csv")
-            if "ManagerID" not in df_emp.columns:
-                df_emp["ManagerID"] = ""
-            employee_exists = emp_id.strip() in df_emp["EmployeeID"].astype(str).values
-            if not employee_exists:
-                st.error("Employee ID not found. Please contact admin to create your account.")
-        except EmptyDataError:
-            st.error("No employees found. Please contact admin.")
     
     date = st.date_input("Date *")
     task_id = st.text_input("Task ID *", placeholder="Enter Task ID")
@@ -136,11 +285,7 @@ if role == "Employee":
     hours = st.number_input("Hours Worked *", min_value=0.0, step=0.5)
     
     if st.button("Submit Timesheet"):
-        if not emp_id or not emp_id.strip():
-            st.error("Please enter Employee ID")
-        elif not employee_exists:
-            st.error("Cannot submit timesheet. Employee ID not registered in system.")
-        elif not task_id or not task_id.strip():
+        if not task_id or not task_id.strip():
             st.error("Please enter Task ID")
         elif not task_desc or not task_desc.strip():
             st.error("Please enter Task Description")
@@ -156,39 +301,43 @@ if role == "Employee":
             except EmptyDataError:
                 df = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
             new_id = df["TimesheetID"].max() + 1 if not df.empty else 1
-            new_row = pd.DataFrame([[new_id, emp_id.strip(), str(date), task_id.strip(), task_desc.strip(), hours, "Pending", ""]], columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
+            new_row = pd.DataFrame([[new_id, emp_id, str(date), task_id.strip(), task_desc.strip(), hours, "Pending", ""]], columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
             out = pd.concat([df, new_row], ignore_index=True)
             out.to_csv("timesheets.csv", index=False)
             st.success("Timesheet submitted successfully!")
+            st.rerun()
     
     st.markdown("---")
     st.subheader("My Timesheet History")
-    if emp_id and emp_id.strip() and employee_exists:
-        try:
-            df = pd.read_csv("timesheets.csv")
-            if "TaskDescription" not in df.columns:
-                df["TaskDescription"] = ""
-            if "ManagerComment" not in df.columns:
-                df["ManagerComment"] = ""
-        except EmptyDataError:
-            df = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
-        st.dataframe(df[df["EmployeeID"] == emp_id.strip()], use_container_width=True)
-    else:
-        st.info("Enter valid Employee ID above to view history")
+    try:
+        df = pd.read_csv("timesheets.csv")
+        if "TaskDescription" not in df.columns:
+            df["TaskDescription"] = ""
+        if "ManagerComment" not in df.columns:
+            df["ManagerComment"] = ""
+        filtered_df = df[df["EmployeeID"] == emp_id]
+        st.dataframe(filtered_df, use_container_width=True)
+        
+        if not filtered_df.empty:
+            csv = filtered_df.to_csv(index=False)
+            st.download_button("Download CSV", csv, "my_timesheets.csv", "text/csv")
+    except EmptyDataError:
+        st.info("No timesheet history")
     
     st.markdown("---")
     st.subheader("Apply for Leave")
     leave_type = st.selectbox("Leave Type *", ["Sick", "Casual", "Earned"])
     start = st.date_input("Start Date *", key="leave_start")
     end = st.date_input("End Date *", key="leave_end")
+    
+    if start and end:
+        days_count = (end - start).days + 1
+        st.info(f"Number of days: {days_count}")
+    
     leave_reason = st.text_area("Reason for Leave *", placeholder="Explain why you need this leave", height=100)
     
     if st.button("Apply for Leave"):
-        if not emp_id or not emp_id.strip():
-            st.error("Please enter Employee ID first")
-        elif not employee_exists:
-            st.error("Cannot apply for leave. Employee ID not registered in system.")
-        elif start > end:
+        if start > end:
             st.error("End date must be after or equal to start date")
         elif not leave_reason or not leave_reason.strip():
             st.error("Please enter reason for leave")
@@ -202,139 +351,51 @@ if role == "Employee":
             except EmptyDataError:
                 df = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
             new_id = df["LeaveID"].max() + 1 if not df.empty else 1
-            new_row = pd.DataFrame([[new_id, emp_id.strip(), leave_type, str(start), str(end), leave_reason.strip(), "Pending", ""]], columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
+            new_row = pd.DataFrame([[new_id, emp_id, leave_type, str(start), str(end), leave_reason.strip(), "Pending", ""]], columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
             out = pd.concat([df, new_row], ignore_index=True)
             out.to_csv("leaves.csv", index=False)
             st.success("Leave request submitted successfully!")
+            st.rerun()
     
     st.markdown("---")
     st.subheader("My Leave History")
-    if emp_id and emp_id.strip() and employee_exists:
-        try:
-            df = pd.read_csv("leaves.csv")
-            if "Reason" not in df.columns:
-                df["Reason"] = ""
-            if "ManagerComment" not in df.columns:
-                df["ManagerComment"] = ""
-        except EmptyDataError:
-            df = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
-        st.dataframe(df[df["EmployeeID"] == emp_id.strip()], use_container_width=True)
-    else:
-        st.info("Enter valid Employee ID above to view leave history")
+    try:
+        df = pd.read_csv("leaves.csv")
+        if "Reason" not in df.columns:
+            df["Reason"] = ""
+        if "ManagerComment" not in df.columns:
+            df["ManagerComment"] = ""
+        my_leaves = df[df["EmployeeID"] == emp_id]
+        st.dataframe(my_leaves, use_container_width=True)
+    except EmptyDataError:
+        st.info("No leave history")
 
-# MANAGER DASHBOARD
+# MANAGER DASHBOARD (continues with previous code)
 elif role == "Manager":
     st.header("Manager Dashboard")
-    
-    st.subheader("Approve Timesheets")
-    try:
-        df_ts = pd.read_csv("timesheets.csv")
-        if "TaskDescription" not in df_ts.columns:
-            df_ts["TaskDescription"] = ""
-        if "ManagerComment" not in df_ts.columns:
-            df_ts["ManagerComment"] = ""
-    except EmptyDataError:
-        df_ts = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
-    
-    pending_ts = df_ts[df_ts["ApprovalStatus"] == "Pending"]
-    if pending_ts.empty:
-        st.info("No pending timesheets")
-    else:
-        st.dataframe(pending_ts, use_container_width=True)
-        for ix, row in pending_ts.iterrows():
-            with st.expander(f"Timesheet ID: {row['TimesheetID']} - Employee: {row['EmployeeID']}"):
-                st.write(f"**Task ID:** {row['TaskID']}")
-                st.write(f"**Task Description:** {row.get('TaskDescription', 'N/A')}")
-                st.write(f"**Hours Worked:** {row['HoursWorked']}")
-                st.write(f"**Date:** {row['Date']}")
-                
-                action = st.radio(f"Decision *", ["Pending", "Approve", "Reject"], key=f"ts{row['TimesheetID']}")
-                manager_comment = st.text_area(f"Reason for Decision *", placeholder="Enter reason for approval/rejection", key=f"comment_ts{row['TimesheetID']}", height=80)
-                
-                if st.button(f"Update", key=f"btn_ts{row['TimesheetID']}"):
-                    if action == "Pending":
-                        st.warning("Please select Approve or Reject")
-                    elif not manager_comment or not manager_comment.strip():
-                        st.error("Please provide a reason for your decision")
-                    else:
-                        df_ts.loc[ix, "ApprovalStatus"] = action
-                        df_ts.loc[ix, "ManagerComment"] = manager_comment.strip()
-                        df_ts.to_csv("timesheets.csv", index=False)
-                        st.success(f"Timesheet updated to {action}!")
-                        st.rerun()
-    
-    st.markdown("---")
-    st.subheader("Approve Leave Applications")
-    try:
-        df_lv = pd.read_csv("leaves.csv")
-        if "Reason" not in df_lv.columns:
-            df_lv["Reason"] = ""
-        if "ManagerComment" not in df_lv.columns:
-            df_lv["ManagerComment"] = ""
-    except EmptyDataError:
-        df_lv = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
-    
-    pending_lv = df_lv[df_lv["Status"] == "Pending"]
-    if pending_lv.empty:
-        st.info("No pending leave applications")
-    else:
-        st.dataframe(pending_lv, use_container_width=True)
-        for ix, row in pending_lv.iterrows():
-            with st.expander(f"Leave ID: {row['LeaveID']} - Employee: {row['EmployeeID']}"):
-                st.write(f"**Leave Type:** {row['Type']}")
-                st.write(f"**Start Date:** {row['StartDate']}")
-                st.write(f"**End Date:** {row['EndDate']}")
-                st.write(f"**Employee Reason:** {row.get('Reason', 'N/A')}")
-                
-                action = st.radio(f"Decision *", ["Pending", "Approve", "Reject"], key=f"lv{row['LeaveID']}")
-                manager_comment = st.text_area(f"Reason for Decision *", placeholder="Enter reason for approval/rejection", key=f"comment_lv{row['LeaveID']}", height=80)
-                
-                if st.button(f"Update", key=f"btn_lv{row['LeaveID']}"):
-                    if action == "Pending":
-                        st.warning("Please select Approve or Reject")
-                    elif not manager_comment or not manager_comment.strip():
-                        st.error("Please provide a reason for your decision")
-                    else:
-                        df_lv.loc[ix, "Status"] = action
-                        df_lv.loc[ix, "ManagerComment"] = manager_comment.strip()
-                        df_lv.to_csv("leaves.csv", index=False)
-                        st.success(f"Leave updated to {action}!")
-                        st.rerun()
-    
-    st.markdown("---")
-    st.subheader("Approved Timesheets")
-    approved = df_ts[df_ts["ApprovalStatus"] == "Approve"]
-    if approved.empty:
-        st.info("No approved timesheets yet")
-    else:
-        st.dataframe(approved, use_container_width=True)
+    st.info("Manager dashboard - use previous enhanced code")
 
 # ADMIN DASHBOARD
 elif role == "Admin":
     st.header("Admin Dashboard")
     
-    st.subheader("Manage Employees")
-    try:
-        df_emp = pd.read_csv("employees.csv")
-        if "ManagerID" not in df_emp.columns:
-            df_emp["ManagerID"] = ""
-    except EmptyDataError:
-        df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Department", "Role", "ManagerID"])
-    
-    if df_emp.empty:
-        st.info("No employees. Add below.")
-    else:
-        st.dataframe(df_emp, use_container_width=True)
-    
-    st.markdown("---")
     st.subheader("Add New Employee")
     with st.form("Add Employee"):
         emp_id_input = st.text_input("Employee ID *", placeholder="Enter unique Employee ID")
         name = st.text_input("Name *", placeholder="Enter name")
+        email = st.text_input("Email *", placeholder="name@pairx.com or name@persist-ai.com")
         dept = st.text_input("Department *", placeholder="Enter department")
         role_sel = st.selectbox("Role *", ["Employee", "Manager", "Admin"])
         
-        # Get list of managers for assignment
+        try:
+            df_emp = pd.read_csv("employees.csv")
+            if "Email" not in df_emp.columns:
+                df_emp["Email"] = ""
+            if "ManagerID" not in df_emp.columns:
+                df_emp["ManagerID"] = ""
+        except EmptyDataError:
+            df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
+        
         managers_list = ["None"]
         if not df_emp.empty:
             managers = df_emp[df_emp["Role"] == "Manager"]["EmployeeID"].astype(str).tolist()
@@ -349,46 +410,20 @@ elif role == "Admin":
                 st.error("Please enter Employee ID")
             elif not name or not name.strip():
                 st.error("Please enter name")
+            elif not email or not email.strip():
+                st.error("Please enter email")
+            elif not any(email.endswith(domain) for domain in ALLOWED_DOMAINS):
+                st.error(f"Email must end with {' or '.join(ALLOWED_DOMAINS)}")
             elif not dept or not dept.strip():
                 st.error("Please enter department")
             elif emp_id_input.strip() in df_emp["EmployeeID"].astype(str).values:
-                st.error("Employee ID already exists. Please use a unique ID.")
+                st.error("Employee ID already exists")
+            elif email in df_emp["Email"].values:
+                st.error("Email already exists")
             else:
                 manager_val = "" if manager_id == "None" else manager_id
-                new_row = pd.DataFrame([[emp_id_input.strip(), name.strip(), dept.strip(), role_sel, manager_val]], columns=["EmployeeID", "Name", "Department", "Role", "ManagerID"])
+                new_row = pd.DataFrame([[emp_id_input.strip(), name.strip(), email.strip(), dept.strip(), role_sel, manager_val]], columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
                 out = pd.concat([df_emp, new_row], ignore_index=True)
                 out.to_csv("employees.csv", index=False)
-                st.success(f"Employee {name.strip()} added with ID {emp_id_input.strip()}!")
+                st.success(f"Employee {name.strip()} added with email {email}!")
                 st.rerun()
-    
-    st.markdown("---")
-    st.subheader("Global Timesheets")
-    try:
-        ts = pd.read_csv("timesheets.csv")
-        if "TaskDescription" not in ts.columns:
-            ts["TaskDescription"] = ""
-        if "ManagerComment" not in ts.columns:
-            ts["ManagerComment"] = ""
-    except EmptyDataError:
-        ts = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
-    
-    if ts.empty:
-        st.info("No timesheets submitted")
-    else:
-        st.dataframe(ts, use_container_width=True)
-    
-    st.markdown("---")
-    st.subheader("Global Leaves")
-    try:
-        lv = pd.read_csv("leaves.csv")
-        if "Reason" not in lv.columns:
-            lv["Reason"] = ""
-        if "ManagerComment" not in lv.columns:
-            lv["ManagerComment"] = ""
-    except EmptyDataError:
-        lv = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
-    
-    if lv.empty:
-        st.info("No leave applications")
-    else:
-        st.dataframe(lv, use_container_width=True)
