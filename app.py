@@ -263,12 +263,12 @@ st.markdown(f"""
         background: {button_bg}33 !important;
     }}
     
-    /* Radio buttons - visible in both modes */
-    [role="radiogroup"] label {{
+    /* Fix toggle/checkbox text visibility */
+    .stCheckbox label {{
         color: {body_text} !important;
     }}
     
-    [role="radiogroup"] label span {{
+    .stCheckbox label span {{
         color: {body_text} !important;
     }}
     
@@ -423,23 +423,26 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 if st.session_state.get('show_settings', False):
+    # Back button at top left
+    if st.button("← Back to Dashboard", key="back_btn"):
+        st.session_state.show_settings = False
+        st.rerun()
+    
+    st.markdown("---")
     st.markdown("## Settings")
     st.markdown("### Appearance")
-    theme_choice = st.radio("Theme", ["Dark Mode", "Light Mode"], index=0 if st.session_state.dark_mode else 1)
     
-    if theme_choice == "Dark Mode":
-        st.session_state.dark_mode = True
-    else:
-        st.session_state.dark_mode = False
+    # Toggle switch for theme
+    dark_mode_toggle = st.checkbox("Dark Mode", value=st.session_state.dark_mode, key="theme_toggle")
+    st.session_state.dark_mode = dark_mode_toggle
     
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Back to Dashboard", use_container_width=True):
-            st.session_state.show_settings = False
-            st.rerun()
-    with col2:
-        if st.button("Logout", use_container_width=True):
-            logout()
+    st.markdown("---")
+    st.markdown("### Account")
+    
+    # Logout button
+    if st.button("Logout", use_container_width=True):
+        logout()
+    
     st.stop()
 
 header_html = f"""
@@ -469,7 +472,7 @@ if not st.session_state.authenticated:
     firebase_login()
     st.stop()
 
-cols = st.columns([4, 4, 2])
+cols = st.columns([5, 5])
 with cols[0]:
     st.markdown(f'<div class="user-info">{st.session_state.user_name}</div>', unsafe_allow_html=True)
 
@@ -486,10 +489,6 @@ with cols[1]:
         st.session_state.view_as = st.selectbox("View as", view_options, index=view_options.index(st.session_state.view_as or actual_role), label_visibility="collapsed")
     else:
         st.markdown(f'<div class="user-info">Role: {actual_role}</div>', unsafe_allow_html=True)
-
-with cols[2]:
-    if st.button("Logout", use_container_width=True):
-        logout()
 
 st.markdown("---")
 
@@ -832,6 +831,3 @@ elif role == "Admin":
                         st.success(message)
                     else:
                         st.error(f"Error: {message}")
-
-
-
