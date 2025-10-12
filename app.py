@@ -229,7 +229,7 @@ st.markdown(f"""
     
     .block-container {{
         padding: 1rem 3rem !important;
-        max-width: 1600px !important;
+        max-width: 1200px !important;
         margin: 0 auto !important;
     }}
     
@@ -423,7 +423,6 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 if st.session_state.get('show_settings', False):
-    # Back button at top left
     if st.button("← Back to Dashboard", key="back_btn"):
         st.session_state.show_settings = False
         st.rerun()
@@ -432,22 +431,20 @@ if st.session_state.get('show_settings', False):
     st.markdown("## Settings")
     st.markdown("### Appearance")
     
-    # Toggle switch for theme
     dark_mode_toggle = st.checkbox("Dark Mode", value=st.session_state.dark_mode, key="theme_toggle")
     st.session_state.dark_mode = dark_mode_toggle
     
     st.markdown("---")
     st.markdown("### Account")
     
-    # Logout button
     if st.button("Logout", use_container_width=True):
         logout()
     
     st.stop()
 
 header_html = f"""
-<div style="background: {header_bg}; padding: 16px 48px; margin: -1rem -3rem 24px -3rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: space-between;">
-    <div style="display: flex; align-items: center; gap: 16px;">
+<div style="background: {header_bg}; padding: 16px; margin: -1rem calc(-50vw + 50%) 24px calc(-50vw + 50%); box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center;">
+    <div style="max-width: 1200px; width: 100%; display: flex; align-items: center; gap: 16px; padding: 0 3rem;">
         <img src="data:image/png;base64,{{}}" width="48">
         <span style="color: #000000; font-size: 20px; font-weight: 700; white-space: nowrap;">Pairx Timesheet Management</span>
     </div>
