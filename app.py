@@ -420,52 +420,54 @@ st.markdown(f"""
         display: none;
     }}
         
-    /* Mobile Responsive */
+        
+    /* Mobile Responsive - Keep desktop look, just adjust spacing */
     @media (max-width: 768px) {{
+        .block-container {{
+            padding: 1rem 1.5rem !important;
+        }}
+        
+        /* Smaller header padding on mobile */
+        .user-info {{
+            font-size: 13px !important;
+        }}
+        
+        /* Make dataframes scrollable */
+        .stDataFrame {{
+            overflow-x: auto !important;
+        }}
+        
+        /* Better column stacking on mobile */
+        [data-testid="column"] {{
+            min-width: 0 !important;
+        }}
+    }}
+    
+    /* Very small mobile devices */
+    @media (max-width: 480px) {{
         .block-container {{
             padding: 0.75rem 1rem !important;
         }}
         
         h1 {{
-            font-size: 22px !important;
+            font-size: 24px !important;
         }}
         
         h2 {{
             font-size: 18px !important;
         }}
         
-        h3 {{
-            font-size: 15px !important;
+        .stButton > button {{
+            font-size: 13px !important;
+            padding: 9px 20px !important;
         }}
         
         .user-info {{
             font-size: 12px !important;
             padding: 6px 12px !important;
         }}
-        
-        .stButton > button,
-        .stFormSubmitButton > button {{
-            font-size: 13px !important;
-            padding: 8px 16px !important;
-        }}
-        
-        .stTextInput > div > div > input,
-        .stNumberInput > div > div > input,
-        .stDateInput > div > div > input,
-        .stSelectbox > div > div,
-        .stTextArea > div > div > textarea {{
-            font-size: 13px !important;
-            padding: 8px 12px !important;
-        }}
-        
-        label {{
-            font-size: 13px !important;
-        }}
-        
-        [data-testid="column"] {{
-            padding: 0 4px !important;
-        }}
     }}
+
 
 
 </style>
@@ -877,4 +879,5 @@ elif role == "Admin":
                         st.success(message)
                     else:
                         st.error(f"Error: {message}")
+
 
