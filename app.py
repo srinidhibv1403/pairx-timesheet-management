@@ -537,14 +537,7 @@ if not st.session_state.authenticated:
     firebase_login()
     st.stop()
 
-# Floating settings button
-col_settings = st.columns([10, 1])
-with col_settings[1]:
-    if st.button("⚙️", key="settings_btn"):
-        st.session_state.show_settings = True
-        st.rerun()
-
-cols = st.columns([5, 5])
+cols = st.columns([4, 4, 1])
 with cols[0]:
     st.markdown(f'<div class="user-info">{st.session_state.user_name}</div>', unsafe_allow_html=True)
 
@@ -561,6 +554,11 @@ with cols[1]:
         st.session_state.view_as = st.selectbox("View as", view_options, index=view_options.index(st.session_state.view_as or actual_role), label_visibility="collapsed")
     else:
         st.markdown(f'<div class="user-info">Role: {actual_role}</div>', unsafe_allow_html=True)
+
+with cols[2]:
+    if st.button("⚙️", key="settings_btn"):
+        st.session_state.show_settings = True
+        st.rerun()
 
 st.markdown("---")
 
