@@ -70,18 +70,55 @@ def send_password_email(email, password, name):
     except Exception as e:
         return False, str(e)
 
-def send_password_reset_email(email):
+def send_password_email(email, password, name):
     try:
-        url = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_WEB_API_KEY}"
-        payload = {"requestType": "PASSWORD_RESET", "email": email}
-        response = requests.post(url, json=payload)
-        if response.status_code == 200:
-            return True, "Password reset email sent successfully"
-        else:
-            error_data = response.json()
-            return False, error_data.get("error", {}).get("message", "Failed to send reset email")
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        
+        smtp_server = st.secrets["email"]["smtp_server"]
+        smtp_port = st.secrets["email"]["smtp_port"]
+        sender_email = st.secrets["email"]["sender_email"]
+        sender_password = st.secrets["email"]["sender_password"]
+        sender_name = st.secrets["email"]["sender_name"]
+        
+        message = MIMEMultipart("alternative")
+        message["Subject"] = "Your Pairx Timesheet Account Password"
+        message["From"] = f"{sender_name} <{sender_email}>"
+        message["To"] = email
+        
+        html = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+              <h2 style="color: #5FA8D3;">Welcome to Pairx Timesheet Management</h2>
+              <p>Hello <strong>{name}</strong>,</p>
+              <p>Your account has been created successfully. Below are your login credentials:</p>
+              <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>Email:</strong> {email}</p>
+                <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <code style="background: #e8e8e8; padding: 5px 10px; border-radius: 3px; font-size: 16px;">{password}</code></p>
+              </div>
+              <p><strong>Important:</strong> Please change your password after your first login for security purposes.</p>
+              <p>You can login at: <a href="https://your-app-url.streamlit.app">Pairx Timesheet</a></p>
+              <br>
+              <p>Best regards,<br><strong>Pairx Team</strong></p>
+            </div>
+          </body>
+        </html>
+        """
+        
+        part = MIMEText(html, "html")
+        message.attach(part)
+        
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, email, message.as_string())
+        
+        return True, "Password email sent successfully"
     except Exception as e:
-        return False, str(e)
+        return False, f"Failed to send email: {str(e)}"
+
 
 def validate_user(email):
     if email == ADMIN_EMAIL:
@@ -880,6 +917,7 @@ elif role == "Admin":
                         st.success(message)
                     else:
                         st.error(f"Error: {message}")
+
 
 
 
