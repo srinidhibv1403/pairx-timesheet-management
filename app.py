@@ -9,7 +9,6 @@ from firebase_admin import credentials, auth as firebase_auth
 
 st.set_page_config(page_title="Pairx Timesheet", layout="wide")
 
-# Initialize Firebase Admin SDK
 if not firebase_admin._apps:
     try:
         if os.path.exists("serviceAccountKey.json"):
@@ -50,6 +49,8 @@ if 'employee_id' not in st.session_state:
     st.session_state.employee_id = None
 if 'user_name' not in st.session_state:
     st.session_state.user_name = None
+if 'view_as' not in st.session_state:
+    st.session_state.view_as = None
 
 def validate_user(email):
     if email == ADMIN_EMAIL:
@@ -74,7 +75,6 @@ def verify_firebase_password(email, password):
 
 def firebase_login():
     st.markdown("### Sign In to Pairx Timesheet")
-    st.info(f"Allowed: {ADMIN_EMAIL} or emails ending with {', '.join(ALLOWED_DOMAINS)}")
     
     with st.form("login_form"):
         email = st.text_input("Email Address", placeholder="your.email@pairx.com")
@@ -108,6 +108,7 @@ def firebase_login():
             st.session_state.user_role = role
             st.session_state.employee_id = emp_id
             st.session_state.user_name = name
+            st.session_state.view_as = role  # Default to user's actual role
             st.success(f"Welcome {name}!")
             st.rerun()
 
@@ -117,6 +118,7 @@ def logout():
     st.session_state.user_role = None
     st.session_state.employee_id = None
     st.session_state.user_name = None
+    st.session_state.view_as = None
     st.rerun()
 
 page_bg = "#0f1419"
@@ -170,16 +172,27 @@ if not st.session_state.authenticated:
     firebase_login()
     st.stop()
 
-col1, col2 = st.columns([4, 1])
+# User info bar with role switcher for admin
+col1, col2, col3 = st.columns([3, 2, 1])
 with col1:
-    st.markdown(f'<div class="user-info">👤 {st.session_state.user_name} ({st.session_state.user_email}) | Role: {st.session_state.user_role}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="user-info">👤 {st.session_state.user_name} ({st.session_state.user_email})</div>', unsafe_allow_html=True)
+
 with col2:
+    # Show role switcher only for admin
+    if st.session_state.user_role == "Admin":
+        view_options = ["Admin", "Manager", "Employee"]
+        st.session_state.view_as = st.selectbox("View as:", view_options, index=view_options.index(st.session_state.view_as))
+    else:
+        st.markdown(f'<div class="user-info">Role: {st.session_state.user_role}</div>', unsafe_allow_html=True)
+
+with col3:
     if st.button("Logout"):
         logout()
 
 st.markdown("---")
 
-role = st.session_state.user_role
+# Use view_as instead of user_role for dashboard display
+role = st.session_state.view_as
 emp_id = st.session_state.employee_id
 
 if role == "Employee":
@@ -196,6 +209,10 @@ if role == "Employee":
         else:
             try:
                 df = pd.read_csv("timesheets.csv")
+                if "TaskDescription" not in df.columns:
+                    df["TaskDescription"] = ""
+                if "ManagerComment" not in df.columns:
+                    df["ManagerComment"] = ""
             except:
                 df = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
             new_id = df["TimesheetID"].max() + 1 if not df.empty else 1
@@ -205,43 +222,177 @@ if role == "Employee":
             out.to_csv("timesheets.csv", index=False)
             st.success("Timesheet submitted!")
             st.rerun()
+    
+    st.markdown("---")
+    st.subheader("My Timesheet History")
+    try:
+        df = pd.read_csv("timesheets.csv")
+        if "TaskDescription" not in df.columns:
+            df["TaskDescription"] = ""
+        if "ManagerComment" not in df.columns:
+            df["ManagerComment"] = ""
+        filtered_df = df[df["EmployeeID"] == emp_id]
+        st.dataframe(filtered_df, use_container_width=True)
+        if not filtered_df.empty:
+            csv = filtered_df.to_csv(index=False)
+            st.download_button("Download", csv, "timesheets.csv", "text/csv")
+    except:
+        st.info("No timesheet history")
+    
+    st.markdown("---")
+    st.subheader("Apply for Leave")
+    leave_type = st.selectbox("Leave Type *", ["Sick", "Casual", "Earned"])
+    start = st.date_input("Start Date *", key="leave_start")
+    end = st.date_input("End Date *", key="leave_end")
+    if start and end:
+        days = (end - start).days + 1
+        st.info(f"Days: {days}")
+    leave_reason = st.text_area("Reason *", height=100)
+    
+    if st.button("Apply for Leave"):
+        if start > end or not leave_reason:
+            st.error("Invalid input")
+        else:
+            try:
+                df = pd.read_csv("leaves.csv")
+                if "Reason" not in df.columns:
+                    df["Reason"] = ""
+                if "ManagerComment" not in df.columns:
+                    df["ManagerComment"] = ""
+            except:
+                df = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
+            new_id = df["LeaveID"].max() + 1 if not df.empty else 1
+            new_row = pd.DataFrame([[new_id, emp_id, leave_type, str(start), str(end), leave_reason, "Pending", ""]], 
+                                  columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
+            out = pd.concat([df, new_row], ignore_index=True)
+            out.to_csv("leaves.csv", index=False)
+            st.success("Leave applied!")
+            st.rerun()
+
+elif role == "Manager":
+    st.header("Manager Dashboard")
+    
+    st.subheader("Approve Timesheets")
+    try:
+        df_ts = pd.read_csv("timesheets.csv")
+        if "TaskDescription" not in df_ts.columns:
+            df_ts["TaskDescription"] = ""
+        if "ManagerComment" not in df_ts.columns:
+            df_ts["ManagerComment"] = ""
+    except:
+        df_ts = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
+    
+    pending_ts = df_ts[df_ts["ApprovalStatus"] == "Pending"]
+    if pending_ts.empty:
+        st.info("No pending timesheets")
+    else:
+        st.dataframe(pending_ts, use_container_width=True)
+        for ix, row in pending_ts.iterrows():
+            with st.expander(f"Timesheet #{row['TimesheetID']} - Employee: {row['EmployeeID']}"):
+                st.write(f"**Task:** {row['TaskID']}")
+                st.write(f"**Description:** {row.get('TaskDescription', 'N/A')}")
+                st.write(f"**Hours:** {row['HoursWorked']}")
+                st.write(f"**Date:** {row['Date']}")
+                
+                action = st.radio("Decision *", ["Pending", "Approve", "Reject"], key=f"ts{row['TimesheetID']}")
+                comment = st.text_area("Reason *", key=f"cmt_ts{row['TimesheetID']}", height=80)
+                
+                if st.button("Update", key=f"btn_ts{row['TimesheetID']}"):
+                    if action == "Pending":
+                        st.warning("Select Approve or Reject")
+                    elif not comment:
+                        st.error("Provide reason")
+                    else:
+                        df_ts.loc[ix, "ApprovalStatus"] = action
+                        df_ts.loc[ix, "ManagerComment"] = comment
+                        df_ts.to_csv("timesheets.csv", index=False)
+                        st.success(f"Updated to {action}!")
+                        st.rerun()
+    
+    st.markdown("---")
+    st.subheader("Approve Leaves")
+    try:
+        df_lv = pd.read_csv("leaves.csv")
+        if "Reason" not in df_lv.columns:
+            df_lv["Reason"] = ""
+        if "ManagerComment" not in df_lv.columns:
+            df_lv["ManagerComment"] = ""
+    except:
+        df_lv = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
+    
+    pending_lv = df_lv[df_lv["Status"] == "Pending"]
+    if pending_lv.empty:
+        st.info("No pending leaves")
+    else:
+        st.dataframe(pending_lv, use_container_width=True)
+        for ix, row in pending_lv.iterrows():
+            with st.expander(f"Leave #{row['LeaveID']} - Employee: {row['EmployeeID']}"):
+                st.write(f"**Type:** {row['Type']}")
+                st.write(f"**Dates:** {row['StartDate']} to {row['EndDate']}")
+                st.write(f"**Reason:** {row.get('Reason', 'N/A')}")
+                
+                action = st.radio("Decision *", ["Pending", "Approve", "Reject"], key=f"lv{row['LeaveID']}")
+                comment = st.text_area("Reason *", key=f"cmt_lv{row['LeaveID']}", height=80)
+                
+                if st.button("Update", key=f"btn_lv{row['LeaveID']}"):
+                    if action == "Pending":
+                        st.warning("Select Approve or Reject")
+                    elif not comment:
+                        st.error("Provide reason")
+                    else:
+                        df_lv.loc[ix, "Status"] = action
+                        df_lv.loc[ix, "ManagerComment"] = comment
+                        df_lv.to_csv("leaves.csv", index=False)
+                        st.success(f"Updated to {action}!")
+                        st.rerun()
 
 elif role == "Admin":
     st.header("Admin Dashboard")
-    st.subheader("Create New User in Firebase")
+    
+    st.subheader("Create Firebase User")
     with st.form("create_user"):
         new_email = st.text_input("Email *")
         new_password = st.text_input("Password *", type="password")
-        new_name = st.text_input("Display Name *")
-        create = st.form_submit_button("Create User")
+        new_name = st.text_input("Name *")
+        create = st.form_submit_button("Create in Firebase")
         
         if create:
             if new_email and new_password and new_name:
                 try:
                     user = firebase_auth.create_user(email=new_email, password=new_password, display_name=new_name)
-                    st.success(f"✅ User created: {user.email}")
+                    st.success(f"✅ Created: {user.email}")
                 except Exception as e:
                     st.error(f"Error: {e}")
     
     st.markdown("---")
-    st.subheader("Add to Employee Database")
+    st.subheader("Add Employee to Database")
     with st.form("add_employee"):
-        emp_id_input = st.text_input("Employee ID *")
+        emp_id = st.text_input("Employee ID *")
         emp_name = st.text_input("Name *")
         emp_email = st.text_input("Email *")
         emp_dept = st.text_input("Department *")
         emp_role = st.selectbox("Role *", ["Employee", "Manager", "Admin"])
-        add = st.form_submit_button("Add Employee")
+        add = st.form_submit_button("Add to Database")
         
         if add:
-            if emp_id_input and emp_name and emp_email and emp_dept:
+            if emp_id and emp_name and emp_email and emp_dept:
                 try:
                     df_emp = pd.read_csv("employees.csv")
                 except:
                     df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
-                new_row = pd.DataFrame([[emp_id_input, emp_name, emp_email, emp_dept, emp_role, ""]], 
+                new_row = pd.DataFrame([[emp_id, emp_name, emp_email, emp_dept, emp_role, ""]], 
                                       columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
                 out = pd.concat([df_emp, new_row], ignore_index=True)
                 out.to_csv("employees.csv", index=False)
-                st.success(f"✅ Employee added!")
+                st.success("✅ Added to database!")
                 st.rerun()
+    
+    st.markdown("---")
+    st.subheader("All Employees")
+    try:
+        df_emp = pd.read_csv("employees.csv")
+        st.dataframe(df_emp, use_container_width=True)
+        csv = df_emp.to_csv(index=False)
+        st.download_button("Download", csv, "employees.csv", "text/csv")
+    except:
+        st.info("No employees")
