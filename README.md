@@ -428,7 +428,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 **Version 2.0.0** | **Built with Streamlit & Firebase** | **October 2025**
 
-For support, email: support@pairx.com
+
 
 
 
