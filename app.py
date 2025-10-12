@@ -516,13 +516,32 @@ if st.session_state.get('show_settings', False):
     
     st.stop()
 
+# Header with settings button in rightmost corner
 header_html = f"""
 <div style="background: {header_bg}; padding: 12px 16px; margin: -1rem -1.5rem 24px -1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100vw; position: relative; left: 50%; right: 50%; margin-left: -50vw; margin-right: -50vw;">
-    <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 0 16px;">
-        <img src="data:image/png;base64,{{}}" width="40" style="min-width: 40px; flex-shrink: 0;">
-        <span style="color: #000000; font-size: 18px; font-weight: 700;">Pairx Timesheet</span>
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 0 16px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <img src="data:image/png;base64,{{}}" width="40" style="min-width: 40px; flex-shrink: 0;">
+            <span style="color: #000000; font-size: 18px; font-weight: 700;">Pairx Timesheet</span>
+        </div>
+        <button onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'settings'}}, '*')" 
+                style="background: #5FA8D3; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; 
+                       font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; 
+                       box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s;">
+            ⚙️
+        </button>
     </div>
 </div>
+<script>
+document.querySelector('button').addEventListener('click', function() {{
+    window.parent.postMessage({{
+        isStreamlitMessage: true,
+        type: 'streamlit:setComponentValue',
+        key: 'settings_btn_header',
+        value: true
+    }}, '*');
+}});
+</script>
 """
 
 try:
@@ -533,11 +552,11 @@ try:
 except:
     st.markdown(header_html.format(""), unsafe_allow_html=True)
 
-col_settings = st.columns([10, 1])
-with col_settings[1]:
-    if st.button("⚙️", key="settings_btn"):
-        st.session_state.show_settings = True
-        st.rerun()
+# Check if settings button was clicked
+if 'settings_btn_header' in st.session_state and st.session_state.get('settings_btn_header'):
+    st.session_state.show_settings = True
+    st.session_state.settings_btn_header = False
+    st.rerun()
 
 if not st.session_state.authenticated:
     firebase_login()
@@ -574,6 +593,9 @@ if actual_role == "Employee" and role != "Employee":
 if actual_role == "Manager" and role == "Admin":
     st.error("Access Denied")
     st.stop()
+
+# Rest of the dashboard code remains the same...
+# (Employee, Manager, Admin dashboards - keeping the same as before)
 
 if role == "Employee":
     st.header("Employee Dashboard")
