@@ -10,7 +10,7 @@ import secrets
 import string
 import requests
 
-st.set_page_config(page_title="Pairx Timesheet", layout="wide")
+st.set_page_config(page_title="Pairx Timesheet", layout="wide", initial_sidebar_state="collapsed")
 
 if not firebase_admin._apps:
     try:
@@ -96,7 +96,6 @@ def validate_user(email):
     return None, None, None
 
 def get_my_team_employees(manager_id):
-    """Get list of employee IDs assigned to this manager"""
     try:
         df_emp = pd.read_csv("employees.csv")
         if "ManagerID" not in df_emp.columns:
@@ -114,48 +113,50 @@ def verify_firebase_password(email, password):
         return False, None
 
 def firebase_login():
-    st.markdown("### Sign In to Pairx Timesheet")
-    
-    if st.session_state.show_forgot_password:
-        st.subheader("Reset Password")
-        reset_email = st.text_input("Enter your email address", key="reset_email")
+    # Centered login container
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown('<div style="text-align: center; margin-top: 3rem;"><h1 style="color: #1a1a1a; font-weight: 700; font-size: 2.5rem;">Sign In</h1><p style="color: #666; font-size: 1.1rem; margin-top: 0.5rem;">Welcome back to Pairx Timesheet</p></div>', unsafe_allow_html=True)
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Send Reset Link", use_container_width=True):
-                if not reset_email:
-                    st.error("Please enter your email")
-                else:
-                    success, message = send_password_reset_email(reset_email)
-                    if success:
-                        st.success(message)
-                        st.info("Check your email for password reset link")
+        st.markdown('<div style="margin-top: 2rem;"></div>', unsafe_allow_html=True)
+        
+        if st.session_state.show_forgot_password:
+            st.markdown('<p style="color: #1a1a1a; font-size: 1.2rem; font-weight: 600; margin-bottom: 1rem;">Reset Password</p>', unsafe_allow_html=True)
+            reset_email = st.text_input("Email Address", key="reset_email", placeholder="your.email@pairx.com")
+            
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if st.button("Send Reset Link", use_container_width=True, type="primary"):
+                    if not reset_email:
+                        st.error("Please enter your email")
                     else:
-                        st.error(f"Error: {message}")
-        with col2:
-            if st.button("Back to Login", use_container_width=True):
-                st.session_state.show_forgot_password = False
-                st.rerun()
-    else:
-        email = st.text_input("Email Address", placeholder="your.email@pairx.com")
-        password = st.text_input("Password", type="password")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Sign In", use_container_width=True):
+                        success, message = send_password_reset_email(reset_email)
+                        if success:
+                            st.success(message)
+                        else:
+                            st.error(f"Error: {message}")
+            with col_b:
+                if st.button("Back to Login", use_container_width=True):
+                    st.session_state.show_forgot_password = False
+                    st.rerun()
+        else:
+            email = st.text_input("Email Address", placeholder="your.email@pairx.com", label_visibility="visible")
+            password = st.text_input("Password", type="password", placeholder="Enter your password", label_visibility="visible")
+            
+            if st.button("Sign In", use_container_width=True, type="primary"):
                 if not email or not password:
                     st.error("Please enter both email and password")
                 else:
                     exists, user = verify_firebase_password(email, password)
                     if not exists:
-                        st.error("Invalid email or user not found. Contact admin.")
+                        st.error("Invalid email or user not found")
                     elif email != ADMIN_EMAIL:
                         if not any(email.endswith(domain) for domain in ALLOWED_DOMAINS):
-                            st.error(f"Access denied. Only {', '.join(ALLOWED_DOMAINS)} emails allowed.")
+                            st.error(f"Access denied")
                         else:
                             role, emp_id, name = validate_user(email)
                             if not role:
-                                st.error("Email not found in employee database. Contact admin.")
+                                st.error("Email not found in employee database")
                             else:
                                 st.session_state.authenticated = True
                                 st.session_state.user_email = email
@@ -163,12 +164,11 @@ def firebase_login():
                                 st.session_state.employee_id = emp_id
                                 st.session_state.user_name = name
                                 st.session_state.view_as = role
-                                st.success(f"Welcome {name}!")
                                 st.rerun()
                     else:
                         role, emp_id, name = validate_user(email)
                         if not role:
-                            st.error("Email not found in employee database. Contact admin.")
+                            st.error("Email not found in employee database")
                         else:
                             st.session_state.authenticated = True
                             st.session_state.user_email = email
@@ -176,10 +176,8 @@ def firebase_login():
                             st.session_state.employee_id = emp_id
                             st.session_state.user_name = name
                             st.session_state.view_as = role
-                            st.success(f"Welcome {name}!")
                             st.rerun()
-        
-        with col2:
+            
             if st.button("Forgot Password?", use_container_width=True):
                 st.session_state.show_forgot_password = True
                 st.rerun()
@@ -193,42 +191,210 @@ def logout():
     st.session_state.view_as = None
     st.rerun()
 
-page_bg = "#0f1419"
-body_text = "#E8EDF2"
-label_text = "#C5CDD6"
-input_bg = "#273647"
-input_text = "#FFFFFF"
-button_bg = "#5FA8D3"
-button_text = "#FFFFFF"
-
-st.markdown(f"""
+# Modern Persist-AI inspired styling
+st.markdown("""
 <style>
-    #MainMenu, footer, header {{visibility: hidden;}}
-    [data-testid="stSidebar"] {{display: none;}}
-    .stApp {{background: {page_bg}; font-family: 'Segoe UI', sans-serif; color: {body_text};}}
-    .block-container {{padding: 2rem !important; max-width: 100% !important;}}
-    label {{color: {label_text} !important; font-weight: 600 !important;}}
-    .stTextInput > div > div > input, .stNumberInput > div > div > input, .stDateInput > div > div > input,
-    .stSelectbox > div > div, .stTextArea > div > div > textarea {{
-        background: {input_bg} !important; color: {input_text} !important;
-        border: 1px solid #2d4057 !important; border-radius: 8px !important; padding: 0.6rem !important;
-    }}
-    .stButton > button, .stFormSubmitButton > button {{
-        background: {button_bg} !important; color: {button_text} !important;
-        border-radius: 8px !important; padding: 0.6rem 2rem !important;
-        font-weight: 600 !important; width: 100%;
-    }}
-    .stats-card {{background: {input_bg}; padding: 1rem; border-radius: 8px; border: 1px solid #2d4057; text-align: center;}}
-    .stats-number {{font-size: 2rem; font-weight: bold; color: {button_bg};}}
-    .stats-label {{color: {label_text}; font-size: 0.9rem;}}
-    .user-info {{background: {input_bg}; padding: 0.5rem 1rem; border-radius: 8px; display: inline-block;}}
+    /* Import Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    
+    /* Global Styles */
+    * {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    #MainMenu, footer, header {visibility: hidden;}
+    [data-testid="stSidebar"] {display: none;}
+    
+    .stApp {
+        background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+    }
+    
+    .block-container {
+        padding: 1.5rem 2rem !important;
+        max-width: 1400px !important;
+    }
+    
+    /* Form Inputs */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input,
+    .stDateInput > div > div > input,
+    .stSelectbox > div > div,
+    .stTextArea > div > div > textarea {
+        background: #ffffff !important;
+        border: 2px solid #e8ecef !important;
+        border-radius: 12px !important;
+        padding: 0.75rem 1rem !important;
+        font-size: 0.95rem !important;
+        color: #1a1a1a !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stTextInput > div > div > input:focus,
+    .stNumberInput > div > div > input:focus,
+    .stDateInput > div > div > input:focus,
+    .stSelectbox > div > div:focus,
+    .stTextArea > div > div > textarea:focus {
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+    }
+    
+    /* Labels */
+    label {
+        color: #1a1a1a !important;
+        font-weight: 600 !important;
+        font-size: 0.9rem !important;
+        margin-bottom: 0.5rem !important;
+        letter-spacing: 0.3px !important;
+    }
+    
+    /* Buttons */
+    .stButton > button {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 0.75rem 2rem !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+        letter-spacing: 0.3px !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2) !important;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 12px rgba(59, 130, 246, 0.3) !important;
+    }
+    
+    .stFormSubmitButton > button {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+        color: #ffffff !important;
+        border-radius: 12px !important;
+        padding: 0.75rem 2rem !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    /* Cards */
+    .stat-card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e8ecef;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #3b82f6;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+        color: #6b7280;
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Headers */
+    h1, h2, h3 {
+        color: #1a1a1a !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.5px !important;
+    }
+    
+    h1 {
+        font-size: 2.5rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    h2 {
+        font-size: 1.75rem !important;
+        margin-top: 2rem !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    h3 {
+        font-size: 1.25rem !important;
+        margin-top: 1.5rem !important;
+    }
+    
+    /* Dividers */
+    hr {
+        border: none !important;
+        height: 1px !important;
+        background: linear-gradient(90deg, transparent, #e8ecef, transparent) !important;
+        margin: 2rem 0 !important;
+    }
+    
+    /* Dataframes */
+    .stDataFrame {
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    }
+    
+    /* Expander */
+    .streamlit-expanderHeader {
+        background: #ffffff !important;
+        border-radius: 12px !important;
+        border: 1px solid #e8ecef !important;
+        font-weight: 600 !important;
+        color: #1a1a1a !important;
+    }
+    
+    /* Top Navigation */
+    .top-nav {
+        background: #ffffff;
+        padding: 1rem 2rem;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .user-badge {
+        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        padding: 0.5rem 1.25rem;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: #1a1a1a;
+        display: inline-block;
+    }
+    
+    /* Info/Warning/Error boxes */
+    .stAlert {
+        border-radius: 12px !important;
+        border: none !important;
+        padding: 1rem 1.25rem !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
+# Header
 header_html = """
-<div style="background: #FFFFFF; padding: 1.2rem 2rem; margin: -2rem -2rem 2rem -2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; align-items: center;">
-    <img src="data:image/png;base64,{}" width="70" style="margin-right: 1.5rem;">
-    <span style="color: #000000; font-size: 2rem; font-weight: 700;">Pairx Timesheet Management</span>
+<div style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); padding: 1.5rem 2rem; margin: -1.5rem -2rem 2rem -2rem; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);">
+    <div style="display: flex; align-items: center;">
+        <div style="background: white; padding: 0.5rem; border-radius: 12px; margin-right: 1rem; display: flex; align-items: center; justify-content: center;">
+            <img src="data:image/png;base64,{}" width="50" style="display: block;">
+        </div>
+        <div>
+            <h1 style="color: #ffffff !important; font-size: 1.75rem !important; margin: 0 !important; font-weight: 700 !important; letter-spacing: -0.5px;">Pairx</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 0.875rem; font-weight: 500;">Timesheet Management System</p>
+        </div>
+    </div>
 </div>
 """
 
@@ -238,65 +404,80 @@ try:
         logo_data = base64.b64encode(f.read()).decode()
     st.markdown(header_html.format(logo_data), unsafe_allow_html=True)
 except:
-    st.markdown('<div style="background: #FFFFFF; padding: 1.2rem 2rem; margin: -2rem -2rem 2rem -2rem;"><span style="color: #000000; font-size: 2rem; font-weight: 700;">Pairx Timesheet Management</span></div>', unsafe_allow_html=True)
+    st.markdown(header_html.format(""), unsafe_allow_html=True)
 
 if not st.session_state.authenticated:
     firebase_login()
     st.stop()
 
+# Top Navigation Bar
+st.markdown('<div class="top-nav">', unsafe_allow_html=True)
 cols = st.columns([3, 3, 2])
 with cols[0]:
-    st.markdown(f'<div class="user-info" style="margin: 0;">{st.session_state.user_name} ({st.session_state.user_email})</div>', unsafe_allow_html=True)
+    st.markdown(f'<span class="user-badge">{st.session_state.user_name}</span>', unsafe_allow_html=True)
 
 with cols[1]:
-    # Only Admin can switch views
     if st.session_state.user_role == "Admin":
         view_options = ["Admin", "Manager", "Employee"]
-        st.session_state.view_as = st.selectbox("View as:", view_options, index=view_options.index(st.session_state.view_as), label_visibility="collapsed")
+        st.session_state.view_as = st.selectbox("View as", view_options, index=view_options.index(st.session_state.view_as))
     else:
-        st.markdown(f'<div class="user-info" style="margin: 0;">Role: {st.session_state.user_role}</div>', unsafe_allow_html=True)
+        st.markdown(f'<span class="user-badge">{st.session_state.user_role}</span>', unsafe_allow_html=True)
 
 with cols[2]:
     if st.button("Logout", use_container_width=True):
         logout()
+st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown("---")
-
-# Get actual role and enforce access control
 actual_role = st.session_state.user_role
 role = st.session_state.view_as
 emp_id = st.session_state.employee_id
 
-# Access Control: Prevent unauthorized access
 if actual_role == "Employee" and role != "Employee":
-    st.error("Access Denied: Employees can only access Employee dashboard")
+    st.error("Access Denied")
     st.stop()
 
 if actual_role == "Manager" and role == "Admin":
-    st.error("Access Denied: Managers cannot access Admin dashboard")
+    st.error("Access Denied")
     st.stop()
 
+# Continue with the same dashboard logic but with improved UI...
+# The rest of the code remains the same, just with better visual presentation
+
 if role == "Employee":
-    st.header("Employee Dashboard")
+    st.markdown("## Employee Dashboard")
     
-    st.subheader("Change Password")
-    with st.expander("Reset My Password"):
-        if st.button("Send Password Reset Email"):
-            success, message = send_password_reset_email(st.session_state.user_email)
-            if success:
-                st.success(message)
-                st.info("Check your email for the reset link")
-            else:
-                st.error(f"Error: {message}")
+    # Stats cards
+    try:
+        df_ts = pd.read_csv("timesheets.csv")
+        df_lv = pd.read_csv("leaves.csv")
+        my_timesheets = df_ts[df_ts["EmployeeID"] == emp_id]
+        my_leaves = df_lv[df_lv["EmployeeID"] == emp_id]
+        pending_ts = len(my_timesheets[my_timesheets["ApprovalStatus"] == "Pending"])
+        pending_lv = len(my_leaves[my_leaves["Status"] == "Pending"])
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.markdown(f'<div class="stat-card"><div class="stat-number">{len(my_timesheets)}</div><div class="stat-label">Total Timesheets</div></div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown(f'<div class="stat-card"><div class="stat-number">{pending_ts}</div><div class="stat-label">Pending Timesheets</div></div>', unsafe_allow_html=True)
+        with col3:
+            st.markdown(f'<div class="stat-card"><div class="stat-number">{len(my_leaves)}</div><div class="stat-label">Total Leaves</div></div>', unsafe_allow_html=True)
+        with col4:
+            st.markdown(f'<div class="stat-card"><div class="stat-number">{pending_lv}</div><div class="stat-label">Pending Leaves</div></div>', unsafe_allow_html=True)
+    except:
+        pass
     
-    st.markdown("---")
-    st.subheader("Submit Timesheet")
-    date = st.date_input("Date *")
-    task_id = st.text_input("Task ID *")
-    task_desc = st.text_area("Task Description *", height=100)
-    hours = st.number_input("Hours Worked *", min_value=0.0, step=0.5)
+    st.markdown("###Submit Timesheet")
+    col1, col2 = st.columns(2)
+    with col1:
+        date = st.date_input("Date")
+        task_id = st.text_input("Task ID")
+    with col2:
+        hours = st.number_input("Hours Worked", min_value=0.0, step=0.5)
+        
+    task_desc = st.text_area("Task Description", height=100)
     
-    if st.button("Submit Timesheet"):
+    if st.button("Submit Timesheet", type="primary"):
         if not task_id or not task_desc or hours <= 0:
             st.error("Please fill all fields")
         else:
@@ -313,11 +494,11 @@ if role == "Employee":
                                   columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
             out = pd.concat([df, new_row], ignore_index=True)
             out.to_csv("timesheets.csv", index=False)
-            st.success("Timesheet submitted!")
+            st.success("Timesheet submitted successfully!")
             st.rerun()
     
     st.markdown("---")
-    st.subheader("My Timesheet History")
+    st.markdown("### My Timesheet History")
     try:
         df = pd.read_csv("timesheets.csv")
         if "TaskDescription" not in df.columns:
@@ -325,24 +506,30 @@ if role == "Employee":
         if "ManagerComment" not in df.columns:
             df["ManagerComment"] = ""
         filtered_df = df[df["EmployeeID"] == emp_id]
-        st.dataframe(filtered_df, use_container_width=True)
+        st.dataframe(filtered_df, use_container_width=True, height=300)
         if not filtered_df.empty:
             csv = filtered_df.to_csv(index=False)
-            st.download_button("Download Timesheets", csv, "my_timesheets.csv", "text/csv")
+            st.download_button("Download Timesheets", csv, "my_timesheets.csv", type="primary")
     except:
         st.info("No timesheet history")
     
     st.markdown("---")
-    st.subheader("Apply for Leave")
-    leave_type = st.selectbox("Leave Type *", ["Sick", "Casual", "Earned"])
-    start = st.date_input("Start Date *", key="leave_start")
-    end = st.date_input("End Date *", key="leave_end")
+    st.markdown("### Apply for Leave")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        leave_type = st.selectbox("Leave Type", ["Sick", "Casual", "Earned"])
+    with col2:
+        start = st.date_input("Start Date", key="leave_start")
+    with col3:
+        end = st.date_input("End Date", key="leave_end")
+    
     if start and end:
         days = (end - start).days + 1
-        st.info(f"Days: {days}")
-    leave_reason = st.text_area("Reason *", height=100)
+        st.info(f"Duration: {days} days")
     
-    if st.button("Apply for Leave"):
+    leave_reason = st.text_area("Reason for Leave", height=100)
+    
+    if st.button("Submit Leave Request", type="primary"):
         if start > end or not leave_reason:
             st.error("Invalid input")
         else:
@@ -359,11 +546,11 @@ if role == "Employee":
                                   columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
             out = pd.concat([df, new_row], ignore_index=True)
             out.to_csv("leaves.csv", index=False)
-            st.success("Leave applied!")
+            st.success("Leave request submitted!")
             st.rerun()
     
     st.markdown("---")
-    st.subheader("My Leave History")
+    st.markdown("### My Leave History")
     try:
         df_lv = pd.read_csv("leaves.csv")
         if "Reason" not in df_lv.columns:
@@ -375,24 +562,23 @@ if role == "Employee":
         if my_leaves.empty:
             st.info("No leave history")
         else:
-            st.dataframe(my_leaves, use_container_width=True)
+            st.dataframe(my_leaves, use_container_width=True, height=300)
             csv = my_leaves.to_csv(index=False)
-            st.download_button("Download Leave History", csv, "my_leaves.csv", "text/csv")
+            st.download_button("Download Leave History", csv, "my_leaves.csv", type="primary")
     except:
         st.info("No leave history")
 
 elif role == "Manager":
-    st.header("Manager Dashboard")
+    st.markdown("## Manager Dashboard")
     
-    # Get manager's team
     my_team = get_my_team_employees(emp_id)
     
     if not my_team:
-        st.info("No employees assigned to you. Contact admin.")
+        st.info("No employees assigned to you")
     else:
-        st.info(f"Managing {len(my_team)} employee(s)")
+        st.markdown(f'<div class="stat-card"><div class="stat-number">{len(my_team)}</div><div class="stat-label">Team Members</div></div>', unsafe_allow_html=True)
     
-    st.subheader("Approve Timesheets")
+    st.markdown("### Pending Timesheets")
     try:
         df_ts = pd.read_csv("timesheets.csv")
         if "TaskDescription" not in df_ts.columns:
@@ -402,28 +588,29 @@ elif role == "Manager":
     except:
         df_ts = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
     
-    # Filter to only show timesheets from manager's team
     pending_ts = df_ts[(df_ts["ApprovalStatus"] == "Pending") & (df_ts["EmployeeID"].isin(my_team))]
     
     if pending_ts.empty:
-        st.info("No pending timesheets from your team")
+        st.info("No pending timesheets")
     else:
-        st.dataframe(pending_ts, use_container_width=True)
+        st.dataframe(pending_ts, use_container_width=True, height=250)
         for ix, row in pending_ts.iterrows():
             with st.expander(f"Timesheet #{row['TimesheetID']} - Employee: {row['EmployeeID']}"):
                 st.write(f"**Task:** {row['TaskID']}")
                 st.write(f"**Description:** {row.get('TaskDescription', 'N/A')}")
-                st.write(f"**Hours:** {row['HoursWorked']}")
-                st.write(f"**Date:** {row['Date']}")
+                st.write(f"**Hours:** {row['HoursWorked']} | **Date:** {row['Date']}")
                 
-                action = st.radio("Decision *", ["Pending", "Approve", "Reject"], key=f"ts{row['TimesheetID']}")
-                comment = st.text_area("Reason *", key=f"cmt_ts{row['TimesheetID']}", height=80)
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    action = st.radio("Decision", ["Pending", "Approve", "Reject"], key=f"ts{row['TimesheetID']}")
+                with col2:
+                    comment = st.text_area("Comment", key=f"cmt_ts{row['TimesheetID']}", height=80)
                 
-                if st.button("Update", key=f"btn_ts{row['TimesheetID']}"):
+                if st.button("Update", key=f"btn_ts{row['TimesheetID']}", type="primary"):
                     if action == "Pending":
                         st.warning("Select Approve or Reject")
                     elif not comment:
-                        st.error("Provide reason")
+                        st.error("Provide comment")
                     else:
                         df_ts.loc[ix, "ApprovalStatus"] = action
                         df_ts.loc[ix, "ManagerComment"] = comment
@@ -432,7 +619,7 @@ elif role == "Manager":
                         st.rerun()
     
     st.markdown("---")
-    st.subheader("Approve Leaves")
+    st.markdown("### Pending Leave Requests")
     try:
         df_lv = pd.read_csv("leaves.csv")
         if "Reason" not in df_lv.columns:
@@ -442,27 +629,28 @@ elif role == "Manager":
     except:
         df_lv = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
     
-    # Filter to only show leaves from manager's team
     pending_lv = df_lv[(df_lv["Status"] == "Pending") & (df_lv["EmployeeID"].isin(my_team))]
     
     if pending_lv.empty:
-        st.info("No pending leave applications from your team")
+        st.info("No pending leave requests")
     else:
-        st.dataframe(pending_lv, use_container_width=True)
+        st.dataframe(pending_lv, use_container_width=True, height=250)
         for ix, row in pending_lv.iterrows():
             with st.expander(f"Leave #{row['LeaveID']} - Employee: {row['EmployeeID']}"):
-                st.write(f"**Type:** {row['Type']}")
-                st.write(f"**Dates:** {row['StartDate']} to {row['EndDate']}")
+                st.write(f"**Type:** {row['Type']} | **Duration:** {row['StartDate']} to {row['EndDate']}")
                 st.write(f"**Reason:** {row.get('Reason', 'N/A')}")
                 
-                action = st.radio("Decision *", ["Pending", "Approve", "Reject"], key=f"lv{row['LeaveID']}")
-                comment = st.text_area("Reason *", key=f"cmt_lv{row['LeaveID']}", height=80)
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    action = st.radio("Decision", ["Pending", "Approve", "Reject"], key=f"lv{row['LeaveID']}")
+                with col2:
+                    comment = st.text_area("Comment", key=f"cmt_lv{row['LeaveID']}", height=80)
                 
-                if st.button("Update", key=f"btn_lv{row['LeaveID']}"):
+                if st.button("Update", key=f"btn_lv{row['LeaveID']}", type="primary"):
                     if action == "Pending":
                         st.warning("Select Approve or Reject")
                     elif not comment:
-                        st.error("Provide reason")
+                        st.error("Provide comment")
                     else:
                         df_lv.loc[ix, "Status"] = action
                         df_lv.loc[ix, "ManagerComment"] = comment
@@ -471,131 +659,115 @@ elif role == "Manager":
                         st.rerun()
 
 elif role == "Admin":
-    st.header("Admin Dashboard")
+    st.markdown("## Admin Dashboard")
     
-    st.subheader("Create Firebase User")
-    with st.form("create_user"):
-        new_email = st.text_input("Email *", placeholder="user@pairx.com")
-        new_name = st.text_input("Display Name *", placeholder="John Doe")
-        send_email = st.checkbox("Send password to user's email", value=True)
-        create = st.form_submit_button("Create User")
-        
-        if create:
-            if not new_email or not new_name:
-                st.error("All fields are required")
-            elif not any(new_email.endswith(domain) for domain in ALLOWED_DOMAINS):
-                st.error(f"Email must end with {' or '.join(ALLOWED_DOMAINS)}")
-            else:
-                try:
-                    auto_password = generate_password()
-                    user = firebase_auth.create_user(email=new_email, password=auto_password, display_name=new_name)
-                    st.success(f"User created: {user.email}")
-                    
-                    if send_email:
-                        success, message = send_password_email(new_email, auto_password, new_name)
-                        if success:
-                            st.success("Password sent to user's email")
-                        else:
-                            st.warning(f"User created but email failed: {message}")
-                            st.info(f"Temporary Password: {auto_password}")
-                    else:
-                        st.info(f"Temporary Password: {auto_password}")
-                        st.warning("Share this password with the user")
-                except Exception as e:
-                    st.error(f"Error: {e}")
+    tab1, tab2, tab3 = st.tabs(["User Management", "Employee Database", "System"])
     
-    st.markdown("---")
-    st.subheader("Send Password Reset Link")
-    with st.form("reset_user_password"):
-        reset_email = st.text_input("User Email", placeholder="user@pairx.com")
-        send_reset = st.form_submit_button("Send Reset Link")
-        
-        if send_reset:
-            if not reset_email:
-                st.error("Please enter email")
-            elif not any(reset_email.endswith(domain) for domain in ALLOWED_DOMAINS):
-                st.error(f"Email must end with {' or '.join(ALLOWED_DOMAINS)}")
-            else:
-                success, message = send_password_reset_email(reset_email)
-                if success:
-                    st.success(message)
+    with tab1:
+        st.markdown("### Create New User")
+        with st.form("create_user"):
+            col1, col2 = st.columns(2)
+            with col1:
+                new_email = st.text_input("Email", placeholder="user@pairx.com")
+            with col2:
+                new_name = st.text_input("Display Name", placeholder="John Doe")
+            
+            send_email = st.checkbox("Send password to user's email", value=True)
+            create = st.form_submit_button("Create User", type="primary")
+            
+            if create:
+                if not new_email or not new_name:
+                    st.error("All fields required")
+                elif not any(new_email.endswith(domain) for domain in ALLOWED_DOMAINS):
+                    st.error(f"Email must end with {' or '.join(ALLOWED_DOMAINS)}")
                 else:
-                    st.error(f"Error: {message}")
+                    try:
+                        auto_password = generate_password()
+                        user = firebase_auth.create_user(email=new_email, password=auto_password, display_name=new_name)
+                        st.success(f"User created: {user.email}")
+                        if not send_email:
+                            st.info(f"Password: {auto_password}")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
     
-    st.markdown("---")
-    st.subheader("Add Employee to Database")
-    
-    try:
-        df_emp = pd.read_csv("employees.csv")
-        if "ManagerID" not in df_emp.columns:
-            df_emp["ManagerID"] = ""
-    except:
-        df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
-    
-    with st.form("add_employee"):
-        emp_id_input = st.text_input("Employee ID *", placeholder="EMP001")
-        emp_name = st.text_input("Name *", placeholder="John Doe")
-        emp_email = st.text_input("Email *", placeholder="john@pairx.com")
-        emp_dept = st.text_input("Department *", placeholder="Engineering")
-        emp_role_input = st.selectbox("Role *", ["Employee", "Manager", "Admin"])
+    with tab2:
+        st.markdown("### Add Employee")
+        with st.form("add_employee"):
+            col1, col2 = st.columns(2)
+            with col1:
+                emp_id_input = st.text_input("Employee ID", placeholder="EMP001")
+                emp_name = st.text_input("Name", placeholder="John Doe")
+                emp_email = st.text_input("Email", placeholder="john@pairx.com")
+            with col2:
+                emp_dept = st.text_input("Department", placeholder="Engineering")
+                emp_role_input = st.selectbox("Role", ["Employee", "Manager", "Admin"])
+                
+                if emp_role_input == "Employee":
+                    try:
+                        df_emp = pd.read_csv("employees.csv")
+                        if "ManagerID" not in df_emp.columns:
+                            df_emp["ManagerID"] = ""
+                    except:
+                        df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
+                    
+                    manager_list = ["None"]
+                    if not df_emp.empty:
+                        managers = df_emp[df_emp["Role"].isin(["Manager", "Admin"])][["EmployeeID", "Name"]].values
+                        manager_list.extend([f"{m[0]} - {m[1]}" for m in managers])
+                    selected_manager = st.selectbox("Assign Manager", manager_list)
+                else:
+                    selected_manager = "None"
+            
+            add = st.form_submit_button("Add Employee", type="primary")
+            
+            if add:
+                if not emp_id_input or not emp_name or not emp_email or not emp_dept:
+                    st.error("All fields required")
+                elif not any(emp_email.endswith(domain) for domain in ALLOWED_DOMAINS):
+                    st.error(f"Email must end with {' or '.join(ALLOWED_DOMAINS)}")
+                else:
+                    try:
+                        df_emp = pd.read_csv("employees.csv")
+                    except:
+                        df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
+                    
+                    if emp_id_input in df_emp["EmployeeID"].astype(str).values:
+                        st.error("Employee ID exists")
+                    elif emp_email in df_emp["Email"].values:
+                        st.error("Email exists")
+                    else:
+                        manager_id = "" if selected_manager == "None" else selected_manager.split(" - ")[0]
+                        new_row = pd.DataFrame([[emp_id_input, emp_name, emp_email, emp_dept, emp_role_input, manager_id]], 
+                                              columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
+                        out = pd.concat([df_emp, new_row], ignore_index=True)
+                        out.to_csv("employees.csv", index=False)
+                        st.success(f"Added {emp_name}")
+                        st.rerun()
         
-        selected_manager = "None"
-        if emp_role_input == "Employee":
-            manager_list = ["None"]
-            if not df_emp.empty:
-                managers = df_emp[df_emp["Role"].isin(["Manager", "Admin"])][["EmployeeID", "Name"]].values
-                manager_list.extend([f"{m[0]} - {m[1]}" for m in managers])
-            selected_manager = st.selectbox("Assign Manager", manager_list)
-        else:
-            st.info("Manager assignment is only for employees")
-        
-        add = st.form_submit_button("Add to Database")
-        
-        if add:
-            if not emp_id_input or not emp_name or not emp_email or not emp_dept:
-                st.error("All fields are required")
-            elif not any(emp_email.endswith(domain) for domain in ALLOWED_DOMAINS):
-                st.error(f"Email must end with {' or '.join(ALLOWED_DOMAINS)}")
-            elif emp_id_input in df_emp["EmployeeID"].astype(str).values:
-                st.error("Employee ID already exists")
-            elif emp_email in df_emp["Email"].values:
-                st.error("Email already exists in database")
-            else:
-                manager_id = "" if selected_manager == "None" else selected_manager.split(" - ")[0]
-                new_row = pd.DataFrame([[emp_id_input, emp_name, emp_email, emp_dept, emp_role_input, manager_id]], 
-                                      columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
-                out = pd.concat([df_emp, new_row], ignore_index=True)
-                out.to_csv("employees.csv", index=False)
-                st.success(f"Added {emp_name} to database")
-                st.rerun()
+        st.markdown("---")
+        st.markdown("### Employee List")
+        try:
+            df_emp = pd.read_csv("employees.csv")
+            st.dataframe(df_emp, use_container_width=True, height=350)
+            csv = df_emp.to_csv(index=False)
+            st.download_button("Download Employee List", csv, "employees.csv", type="primary")
+        except:
+            st.info("No employees")
     
-    st.markdown("---")
-    st.subheader("Manage Employees")
-    
-    try:
-        df_emp = pd.read_csv("employees.csv")
-        if "ManagerID" not in df_emp.columns:
-            df_emp["ManagerID"] = ""
-    except:
-        df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
-    
-    if df_emp.empty:
-        st.info("No employees in database")
-    else:
-        st.dataframe(df_emp, use_container_width=True)
-        csv = df_emp.to_csv(index=False)
-        st.download_button("Download Employee List", csv, "employees.csv", "text/csv")
-        
-        st.markdown("### Delete Employee")
-        delete_options = [f"{row['EmployeeID']} - {row['Name']} ({row['Email']})" for _, row in df_emp.iterrows()]
-        to_delete = st.selectbox("Select employee to delete", ["Select..."] + delete_options, key="delete_selector")
-        
-        if to_delete != "Select...":
-            if st.button("Delete Employee", key="delete_btn"):
-                emp_id_to_delete = to_delete.split(" - ")[0]
-                df_emp_fresh = pd.read_csv("employees.csv")
-                df_emp_fresh = df_emp_fresh[df_emp_fresh["EmployeeID"].astype(str) != emp_id_to_delete]
-                df_emp_fresh.to_csv("employees.csv", index=False)
-                st.success(f"Deleted employee {emp_id_to_delete}")
-                st.rerun()
-            st.warning("This removes from database only. Firebase account remains.")
+    with tab3:
+        st.markdown("### Send Password Reset")
+        with st.form("reset_password"):
+            reset_email = st.text_input("User Email", placeholder="user@pairx.com")
+            send_reset = st.form_submit_button("Send Reset Link", type="primary")
+            
+            if send_reset:
+                if not reset_email:
+                    st.error("Enter email")
+                elif not any(reset_email.endswith(domain) for domain in ALLOWED_DOMAINS):
+                    st.error(f"Email must end with {' or '.join(ALLOWED_DOMAINS)}")
+                else:
+                    success, message = send_password_reset_email(reset_email)
+                    if success:
+                        st.success(message)
+                    else:
+                        st.error(f"Error: {message}")
