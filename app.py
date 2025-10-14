@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import firebase_admin
 from firebase_admin import credentials, auth as firebase_auth
 import secrets
 import string
 import requests
 import re
+import random
 
 st.set_page_config(page_title="Pairx Timesheet", layout="wide", initial_sidebar_state="collapsed")
 
@@ -47,6 +48,16 @@ if 'show_forgot_password' not in st.session_state:
     st.session_state.show_forgot_password = False
 if 'show_signup' not in st.session_state:
     st.session_state.show_signup = False
+if 'otp_sent' not in st.session_state:
+    st.session_state.otp_sent = False
+if 'generated_otp' not in st.session_state:
+    st.session_state.generated_otp = None
+if 'otp_email' not in st.session_state:
+    st.session_state.otp_email = None
+if 'otp_expiry' not in st.session_state:
+    st.session_state.otp_expiry = None
+if 'signup_data' not in st.session_state:
+    st.session_state.signup_data = None
 
 def check_and_create_csvs():
     files_headers = {
@@ -62,6 +73,68 @@ def check_and_create_csvs():
                 f.write(header)
 
 check_and_create_csvs()
+
+def generate_otp():
+    """
+    Generates a random 6-digit OTP
+    """
+    return ''.join([str(random.randint(0, 9)) for _ in range(6)])
+
+def send_otp_email(email, otp, name):
+    """
+    Sends OTP to the user's email for verification
+    """
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        import ssl
+        
+        smtp_server = st.secrets["email"]["smtp_server"]
+        smtp_port = st.secrets["email"]["smtp_port"]
+        sender_email = st.secrets["email"]["sender_email"]
+        sender_password = st.secrets["email"]["sender_password"]
+        sender_name = st.secrets["email"]["sender_name"]
+        
+        message = MIMEMultipart("alternative")
+        message["Subject"] = "Verify Your Email - Pairx Timesheet"
+        message["From"] = f"{sender_name} <{sender_email}>"
+        message["To"] = email
+        
+        html = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+              <h2 style="color: #5FA8D3;">Email Verification - Pairx Timesheet</h2>
+              <p>Hello <strong>{name}</strong>,</p>
+              <p>Thank you for signing up! Please use the following One-Time Password (OTP) to verify your email address:</p>
+              <div style="background: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center;">
+                <h1 style="color: #5FA8D3; font-size: 36px; letter-spacing: 8px; margin: 0;">{otp}</h1>
+              </div>
+              <p><strong>Important:</strong> This OTP will expire in 10 minutes.</p>
+              <p>If you didn't request this verification, please ignore this email.</p>
+              <br>
+              <p>Best regards,<br><strong>Pairx Team</strong></p>
+            </div>
+          </body>
+        </html>
+        """
+        
+        part = MIMEText(html, "html")
+        message.attach(part)
+        
+        context = ssl.create_default_context()
+        
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.ehlo()
+            server.starttls(context=context)
+            server.ehlo()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, email, message.as_string())
+        
+        return True, "OTP sent successfully"
+    except Exception as e:
+        return False, f"Failed to send OTP: {str(e)}"
 
 def generate_next_employee_id():
     """
@@ -243,11 +316,91 @@ def verify_firebase_password(email, password):
 
 def signup_page():
     """
-    Renders the signup page with email, password, confirm password, and employee details
+    Renders the signup page with email verification via OTP
     """
     st.markdown("### Create Your Account")
     
-    # Get list of managers for assignment (only Employee role needs manager)
+    # OTP Verification Stage
+    if st.session_state.otp_sent:
+        st.info(f"An OTP has been sent to {st.session_state.otp_email}")
+        
+        # Check if OTP expired
+        if datetime.now() > st.session_state.otp_expiry:
+            st.error("OTP has expired. Please request a new one.")
+            if st.button("Restart Signup"):
+                st.session_state.otp_sent = False
+                st.session_state.generated_otp = None
+                st.session_state.otp_email = None
+                st.session_state.otp_expiry = None
+                st.session_state.signup_data = None
+                st.rerun()
+            return
+        
+        time_left = (st.session_state.otp_expiry - datetime.now()).seconds // 60
+        st.warning(f"OTP expires in {time_left} minutes")
+        
+        otp_input = st.text_input("Enter 6-digit OTP", max_chars=6, placeholder="000000")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Verify OTP", use_container_width=True):
+                if otp_input == st.session_state.generated_otp:
+                    # OTP verified, create account
+                    data = st.session_state.signup_data
+                    
+                    # Generate next employee ID
+                    new_emp_id = generate_next_employee_id()
+                    
+                    # Create user in Firebase
+                    success, message = create_firebase_user_signup(data['email'], data['password'])
+                    
+                    if success:
+                        # Add employee to database
+                        add_employee_to_database(new_emp_id, data['name'], data['email'], 
+                                                data['department'], data['role'], data['manager_id'])
+                        
+                        st.success(f"✅ Email verified! Account created successfully!")
+                        st.success(f"Your Employee ID is: {new_emp_id}")
+                        st.balloons()
+                        st.info("You can now sign in with your credentials.")
+                        
+                        # Reset session state
+                        st.session_state.otp_sent = False
+                        st.session_state.generated_otp = None
+                        st.session_state.otp_email = None
+                        st.session_state.otp_expiry = None
+                        st.session_state.signup_data = None
+                        st.session_state.show_signup = False
+                    else:
+                        st.error(f"Account creation failed: {message}")
+                else:
+                    st.error("❌ Invalid OTP. Please try again.")
+        
+        with col2:
+            if st.button("Resend OTP", use_container_width=True):
+                new_otp = generate_otp()
+                success, msg = send_otp_email(st.session_state.otp_email, new_otp, 
+                                             st.session_state.signup_data['name'])
+                if success:
+                    st.session_state.generated_otp = new_otp
+                    st.session_state.otp_expiry = datetime.now() + timedelta(minutes=10)
+                    st.success("New OTP sent!")
+                    st.rerun()
+                else:
+                    st.error(f"Failed to resend OTP: {msg}")
+        
+        with col3:
+            if st.button("Cancel", use_container_width=True):
+                st.session_state.otp_sent = False
+                st.session_state.generated_otp = None
+                st.session_state.otp_email = None
+                st.session_state.otp_expiry = None
+                st.session_state.signup_data = None
+                st.rerun()
+        
+        return
+    
+    # Initial Signup Form
     try:
         df_emp = pd.read_csv("employees.csv")
         if "ManagerID" not in df_emp.columns:
@@ -277,10 +430,8 @@ def signup_page():
         col3, col4 = st.columns(2)
         with col3:
             department = st.text_input("Department *", placeholder="Engineering")
-            # Only Employee and Manager roles available during signup
             role = st.selectbox("Role *", ["Employee", "Manager"])
         with col4:
-            # Show manager selection only for Employee role
             if role == "Employee":
                 selected_manager = st.selectbox("Assign Manager", manager_list)
             else:
@@ -290,21 +441,18 @@ def signup_page():
         st.markdown("---")
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
-            submit_button = st.form_submit_button("Create Account", use_container_width=True)
+            submit_button = st.form_submit_button("Send Verification OTP", use_container_width=True)
         with col_btn2:
             if st.form_submit_button("Back to Login", use_container_width=True):
                 st.session_state.show_signup = False
                 st.rerun()
         
         if submit_button:
-            # Validation checks
             errors = []
             
-            # Name validation
             if not name.strip():
                 errors.append("⚠️ Full name is required")
             
-            # Email validation
             if not email.strip():
                 errors.append("⚠️ Email is required")
             elif not re.fullmatch(r"[^@]+@[^@]+\.[^@]+", email):
@@ -312,7 +460,6 @@ def signup_page():
             elif email != ADMIN_EMAIL and not any(email.endswith(domain) for domain in ALLOWED_DOMAINS):
                 errors.append(f"⚠️ Only {' or '.join(ALLOWED_DOMAINS)} domain is allowed")
             
-            # Check if email already exists
             try:
                 df_check = pd.read_csv("employees.csv")
                 if email in df_check["Email"].values:
@@ -320,7 +467,6 @@ def signup_page():
             except:
                 pass
             
-            # Password validation
             if not password.strip():
                 errors.append("⚠️ Password is required")
             else:
@@ -328,36 +474,38 @@ def signup_page():
                 if not is_valid:
                     errors.append(f"⚠️ {msg}")
             
-            # Confirm password validation
             if password != confirm_password:
                 errors.append("⚠️ Passwords do not match")
             
-            # Department validation
             if not department.strip():
                 errors.append("⚠️ Department is required")
             
-            # Display errors or create user
             if errors:
                 for error in errors:
                     st.error(error)
             else:
-                # Generate next employee ID
-                new_emp_id = generate_next_employee_id()
-                
-                # Create user in Firebase
-                success, message = create_firebase_user_signup(email, password)
+                # Generate and send OTP
+                otp = generate_otp()
+                success, msg = send_otp_email(email, otp, name)
                 
                 if success:
-                    # Add employee to database
+                    # Store signup data and OTP in session state
                     manager_id = "" if selected_manager == "None" else selected_manager.split(" - ")[0]
-                    add_employee_to_database(new_emp_id, name, email, department, role, manager_id)
-                    
-                    st.success(f"Account created successfully! Your Employee ID is: {new_emp_id}")
-                    st.balloons()
-                    st.info("You can now sign in with your credentials.")
-                    st.session_state.show_signup = False
+                    st.session_state.signup_data = {
+                        'name': name,
+                        'email': email,
+                        'password': password,
+                        'department': department,
+                        'role': role,
+                        'manager_id': manager_id
+                    }
+                    st.session_state.generated_otp = otp
+                    st.session_state.otp_email = email
+                    st.session_state.otp_expiry = datetime.now() + timedelta(minutes=10)
+                    st.session_state.otp_sent = True
+                    st.rerun()
                 else:
-                    st.error(f"Signup failed: {message}")
+                    st.error(f"Failed to send verification email: {msg}")
 
 def firebase_login():
     if st.session_state.show_signup:
@@ -1017,7 +1165,6 @@ elif role == "Admin":
             col3, col4 = st.columns(2)
             with col3:
                 emp_dept = st.text_input("Department *", placeholder="Engineering")
-                # Admin can assign Employee, Manager, or Admin role
                 emp_role_input = st.selectbox("Role *", ["Employee", "Manager", "Admin"])
             with col4:
                 if emp_role_input == "Employee":
@@ -1045,7 +1192,6 @@ elif role == "Admin":
                 elif not any(new_email.endswith(domain) for domain in ALLOWED_DOMAINS) and new_email != ADMIN_EMAIL:
                     st.error(f"Email must end with {' or '.join(ALLOWED_DOMAINS)}")
                 else:
-                    # Check if email already exists
                     try:
                         df_check = pd.read_csv("employees.csv")
                         if new_email in df_check["Email"].values:
@@ -1057,10 +1203,8 @@ elif role == "Admin":
                     
                     if proceed:
                         try:
-                            # Create Firebase user
                             user = firebase_auth.create_user(email=new_email, password=auto_password, display_name=new_name)
                             
-                            # Generate employee ID and add to database
                             new_emp_id = generate_next_employee_id()
                             manager_id = "" if selected_manager == "None" else selected_manager.split(" - ")[0]
                             add_employee_to_database(new_emp_id, new_name, new_email, emp_dept, emp_role_input, manager_id)
