@@ -7,6 +7,7 @@ from firebase_admin import credentials, auth as firebase_auth
 import secrets
 import string
 import requests
+import re
 
 st.set_page_config(page_title="Pairx Timesheet", layout="wide", initial_sidebar_state="collapsed")
 
@@ -44,6 +45,8 @@ if 'view_as' not in st.session_state:
     st.session_state.view_as = None
 if 'show_forgot_password' not in st.session_state:
     st.session_state.show_forgot_password = False
+if 'show_signup' not in st.session_state:
+    st.session_state.show_signup = False
 
 def check_and_create_csvs():
     files_headers = {
@@ -60,9 +63,86 @@ def check_and_create_csvs():
 
 check_and_create_csvs()
 
+def generate_next_employee_id():
+    """
+    Generates the next employee ID by finding the max ID and incrementing it
+    """
+    try:
+        df_emp = pd.read_csv("employees.csv")
+        if df_emp.empty:
+            return "EMP001"
+        
+        # Extract numeric part from EmployeeID
+        df_emp['ID_Numeric'] = df_emp['EmployeeID'].str.extract(r'(\d+)').astype(int)
+        max_id = df_emp['ID_Numeric'].max()
+        next_id = max_id + 1
+        return f"EMP{next_id:03d}"
+    except:
+        return "EMP001"
+
 def generate_password(length=12):
     chars = string.ascii_letters + string.digits + "!@#$%&*"
     return ''.join(secrets.choice(chars) for _ in range(length))
+
+def validate_password(password):
+    """
+    Validates password with requirements:
+    - At least 8 characters
+    - At least one uppercase letter
+    - At least one special character
+    """
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    
+    if not re.search(r'[A-Z]', password):
+        return False, "Password must contain at least one uppercase letter"
+    
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        return False, "Password must contain at least one special character"
+    
+    return True, "Password is valid"
+
+def create_firebase_user_signup(email, password):
+    """
+    Creates a new user in Firebase using REST API for signup
+    """
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_WEB_API_KEY}"
+    payload = {
+        "email": email,
+        "password": password,
+        "returnSecureToken": True
+    }
+    
+    try:
+        response = requests.post(
+            url,
+            json=payload,
+            headers={"content-type": "application/json; charset=UTF-8"},
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            return True, "Account created successfully!"
+        else:
+            error_msg = response.json().get("error", {}).get("message", "Unknown error")
+            return False, error_msg.replace("_", " ").lower()
+    except Exception as e:
+        return False, str(e)
+
+def add_employee_to_database(emp_id, name, email, department, role, manager_id=""):
+    """
+    Adds employee to the employees.csv database
+    """
+    try:
+        df_emp = pd.read_csv("employees.csv")
+    except:
+        df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
+    
+    new_row = pd.DataFrame([[emp_id, name, email, department, role, manager_id]], 
+                          columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
+    out = pd.concat([df_emp, new_row], ignore_index=True)
+    out.to_csv("employees.csv", index=False)
+    return True
 
 def send_password_email(email, password, name):
     try:
@@ -161,7 +241,129 @@ def verify_firebase_password(email, password):
     except:
         return False, None
 
+def signup_page():
+    """
+    Renders the signup page with email, password, confirm password, and employee details
+    """
+    st.markdown("### Create Your Account")
+    
+    # Get list of managers for assignment (only Employee role needs manager)
+    try:
+        df_emp = pd.read_csv("employees.csv")
+        if "ManagerID" not in df_emp.columns:
+            df_emp["ManagerID"] = ""
+    except:
+        df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
+    
+    manager_list = ["None"]
+    if not df_emp.empty:
+        managers = df_emp[df_emp["Role"].isin(["Manager", "Admin"])][["EmployeeID", "Name"]].values
+        manager_list.extend([f"{m[0]} - {m[1]}" for m in managers])
+    
+    with st.form("signup_form"):
+        st.markdown("#### Account Information")
+        col1, col2 = st.columns(2)
+        with col1:
+            name = st.text_input("Full Name *", placeholder="John Doe")
+            email = st.text_input("Email Address *", placeholder="yourname@persist-ai.com")
+        with col2:
+            password = st.text_input("Create Password *", type="password", 
+                                    help="At least 8 characters, one uppercase letter, and one special character")
+            confirm_password = st.text_input("Confirm Password *", type="password")
+        
+        st.markdown("---")
+        st.markdown("#### Employee Details")
+        
+        col3, col4 = st.columns(2)
+        with col3:
+            department = st.text_input("Department *", placeholder="Engineering")
+            # Only Employee and Manager roles available during signup
+            role = st.selectbox("Role *", ["Employee", "Manager"])
+        with col4:
+            # Show manager selection only for Employee role
+            if role == "Employee":
+                selected_manager = st.selectbox("Assign Manager", manager_list)
+            else:
+                selected_manager = "None"
+                st.info("Managers don't need to be assigned to another manager")
+        
+        st.markdown("---")
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            submit_button = st.form_submit_button("Create Account", use_container_width=True)
+        with col_btn2:
+            if st.form_submit_button("Back to Login", use_container_width=True):
+                st.session_state.show_signup = False
+                st.rerun()
+        
+        if submit_button:
+            # Validation checks
+            errors = []
+            
+            # Name validation
+            if not name.strip():
+                errors.append("⚠️ Full name is required")
+            
+            # Email validation
+            if not email.strip():
+                errors.append("⚠️ Email is required")
+            elif not re.fullmatch(r"[^@]+@[^@]+\.[^@]+", email):
+                errors.append("⚠️ Invalid email format")
+            elif email != ADMIN_EMAIL and not any(email.endswith(domain) for domain in ALLOWED_DOMAINS):
+                errors.append(f"⚠️ Only {' or '.join(ALLOWED_DOMAINS)} domain is allowed")
+            
+            # Check if email already exists
+            try:
+                df_check = pd.read_csv("employees.csv")
+                if email in df_check["Email"].values:
+                    errors.append("⚠️ Email already registered")
+            except:
+                pass
+            
+            # Password validation
+            if not password.strip():
+                errors.append("⚠️ Password is required")
+            else:
+                is_valid, msg = validate_password(password)
+                if not is_valid:
+                    errors.append(f"⚠️ {msg}")
+            
+            # Confirm password validation
+            if password != confirm_password:
+                errors.append("⚠️ Passwords do not match")
+            
+            # Department validation
+            if not department.strip():
+                errors.append("⚠️ Department is required")
+            
+            # Display errors or create user
+            if errors:
+                for error in errors:
+                    st.error(error)
+            else:
+                # Generate next employee ID
+                new_emp_id = generate_next_employee_id()
+                
+                # Create user in Firebase
+                success, message = create_firebase_user_signup(email, password)
+                
+                if success:
+                    # Add employee to database
+                    manager_id = "" if selected_manager == "None" else selected_manager.split(" - ")[0]
+                    add_employee_to_database(new_emp_id, name, email, department, role, manager_id)
+                    
+                    st.success(f"Account created successfully! Your Employee ID is: {new_emp_id}")
+                    st.balloons()
+                    st.info("You can now sign in with your credentials.")
+                    st.session_state.show_signup = False
+                else:
+                    st.error(f"Signup failed: {message}")
+
 def firebase_login():
+    if st.session_state.show_signup:
+        signup_page()
+        return
+    
     st.markdown("### Sign In to Pairx Timesheet")
     
     if st.session_state.show_forgot_password:
@@ -228,6 +430,15 @@ def firebase_login():
         with col2:
             if st.button("Forgot Password?", use_container_width=True):
                 st.session_state.show_forgot_password = True
+                st.rerun()
+        
+        st.markdown("---")
+        col3, col4 = st.columns(2)
+        with col3:
+            st.markdown("Don't have an account?")
+        with col4:
+            if st.button("Sign Up", use_container_width=True):
+                st.session_state.show_signup = True
                 st.rerun()
 
 def logout():
@@ -400,6 +611,13 @@ st.markdown(f"""
         margin: 12px 0 8px 0 !important;
     }}
     
+    h4 {{
+        font-size: 15px !important;
+        font-weight: 600 !important;
+        color: {body_text} !important;
+        margin: 12px 0 8px 0 !important;
+    }}
+    
     hr {{
         border: none !important;
         height: 1px !important;
@@ -539,7 +757,7 @@ if not st.session_state.authenticated:
 
 cols = st.columns([4, 4, 1])
 with cols[0]:
-    st.markdown(f'<div class="user-info">{st.session_state.user_name}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="user-info">{st.session_state.user_name} ({st.session_state.employee_id})</div>', unsafe_allow_html=True)
 
 with cols[1]:
     actual_role = st.session_state.user_role
@@ -781,51 +999,27 @@ elif role == "Admin":
     tab1, tab2, tab3 = st.tabs(["User Management", "Employee Database", "System"])
     
     with tab1:
-        st.subheader("Create Firebase User")
+        st.subheader("Create Firebase User & Employee")
         with st.form("create_user"):
+            st.markdown("#### Account Information")
             col1, col2 = st.columns(2)
             with col1:
-                new_email = st.text_input("Email", placeholder="user@pairx.com")
+                new_email = st.text_input("Email *", placeholder="user@pairx.com")
+                new_name = st.text_input("Full Name *", placeholder="John Doe")
             with col2:
-                new_name = st.text_input("Display Name", placeholder="John Doe")
+                auto_password = generate_password()
+                st.text_input("Auto-Generated Password", value=auto_password, disabled=True)
+                send_email_option = st.checkbox("Send password to user's email", value=True)
             
-            send_email = st.checkbox("Send password to user's email", value=True)
-            create = st.form_submit_button("Create User")
+            st.markdown("---")
+            st.markdown("#### Employee Details")
             
-            if create:
-                if not new_email or not new_name:
-                    st.error("All fields required")
-                elif not any(new_email.endswith(domain) for domain in ALLOWED_DOMAINS):
-                    st.error(f"Email must end with {' or '.join(ALLOWED_DOMAINS)}")
-                else:
-                    try:
-                        auto_password = generate_password()
-                        user = firebase_auth.create_user(email=new_email, password=auto_password, display_name=new_name)
-                        st.success(f"User created: {user.email}")
-                        if send_email:
-                            success, msg = send_password_email(new_email, auto_password, new_name)
-                            if success:
-                                st.success("Password sent to user's email")
-                            else:
-                                st.warning(f"User created but email failed: {msg}")
-                                st.info(f"Password: {auto_password}")
-                        else:
-                            st.info(f"Password: {auto_password}")
-                    except Exception as e:
-                        st.error(f"Error: {e}")
-    
-    with tab2:
-        st.subheader("Add Employee")
-        with st.form("add_employee"):
-            col1, col2 = st.columns(2)
-            with col1:
-                emp_id_input = st.text_input("Employee ID", placeholder="EMP001")
-                emp_name = st.text_input("Name", placeholder="John Doe")
-                emp_email = st.text_input("Email", placeholder="john@pairx.com")
-            with col2:
-                emp_dept = st.text_input("Department", placeholder="Engineering")
-                emp_role_input = st.selectbox("Role", ["Employee", "Manager", "Admin"])
-                
+            col3, col4 = st.columns(2)
+            with col3:
+                emp_dept = st.text_input("Department *", placeholder="Engineering")
+                # Admin can assign Employee, Manager, or Admin role
+                emp_role_input = st.selectbox("Role *", ["Employee", "Manager", "Admin"])
+            with col4:
                 if emp_role_input == "Employee":
                     try:
                         df_emp = pd.read_csv("employees.csv")
@@ -841,34 +1035,53 @@ elif role == "Admin":
                     selected_manager = st.selectbox("Assign Manager", manager_list)
                 else:
                     selected_manager = "None"
+                    st.info("Managers and Admins don't need manager assignment")
             
-            add = st.form_submit_button("Add Employee")
+            create = st.form_submit_button("Create User & Employee")
             
-            if add:
-                if not emp_id_input or not emp_name or not emp_email or not emp_dept:
-                    st.error("All fields required")
-                elif not any(emp_email.endswith(domain) for domain in ALLOWED_DOMAINS):
+            if create:
+                if not new_email or not new_name or not emp_dept:
+                    st.error("All required fields must be filled")
+                elif not any(new_email.endswith(domain) for domain in ALLOWED_DOMAINS) and new_email != ADMIN_EMAIL:
                     st.error(f"Email must end with {' or '.join(ALLOWED_DOMAINS)}")
                 else:
+                    # Check if email already exists
                     try:
-                        df_emp = pd.read_csv("employees.csv")
+                        df_check = pd.read_csv("employees.csv")
+                        if new_email in df_check["Email"].values:
+                            st.error("Email already exists in employee database")
+                        else:
+                            proceed = True
                     except:
-                        df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
+                        proceed = True
                     
-                    if emp_id_input in df_emp["EmployeeID"].astype(str).values:
-                        st.error("Employee ID exists")
-                    elif emp_email in df_emp["Email"].values:
-                        st.error("Email exists")
-                    else:
-                        manager_id = "" if selected_manager == "None" else selected_manager.split(" - ")[0]
-                        new_row = pd.DataFrame([[emp_id_input, emp_name, emp_email, emp_dept, emp_role_input, manager_id]], 
-                                              columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
-                        out = pd.concat([df_emp, new_row], ignore_index=True)
-                        out.to_csv("employees.csv", index=False)
-                        st.success(f"Added {emp_name}")
-                        st.rerun()
-        
-        st.markdown("---")
+                    if proceed:
+                        try:
+                            # Create Firebase user
+                            user = firebase_auth.create_user(email=new_email, password=auto_password, display_name=new_name)
+                            
+                            # Generate employee ID and add to database
+                            new_emp_id = generate_next_employee_id()
+                            manager_id = "" if selected_manager == "None" else selected_manager.split(" - ")[0]
+                            add_employee_to_database(new_emp_id, new_name, new_email, emp_dept, emp_role_input, manager_id)
+                            
+                            st.success(f"User created: {user.email} | Employee ID: {new_emp_id}")
+                            
+                            if send_email_option:
+                                success, msg = send_password_email(new_email, auto_password, new_name)
+                                if success:
+                                    st.success("Password sent to user's email")
+                                else:
+                                    st.warning(f"User created but email failed: {msg}")
+                                    st.info(f"Password: {auto_password}")
+                            else:
+                                st.info(f"Password: {auto_password}")
+                            
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+    
+    with tab2:
         st.subheader("Employee List")
         try:
             df_emp = pd.read_csv("employees.csv")
@@ -876,6 +1089,23 @@ elif role == "Admin":
             csv = df_emp.to_csv(index=False)
             st.download_button("Download", csv, "employees.csv", "text/csv")
             
+            st.markdown("---")
+            st.markdown("### Update Employee Role")
+            update_options = [f"{row['EmployeeID']} - {row['Name']} ({row['Email']}) - Current: {row['Role']}" for _, row in df_emp.iterrows()]
+            to_update = st.selectbox("Select employee to update", ["Select..."] + update_options, key="update_selector")
+            
+            if to_update != "Select...":
+                emp_id_to_update = to_update.split(" - ")[0]
+                new_role = st.selectbox("New Role", ["Employee", "Manager", "Admin"], key="new_role_select")
+                
+                if st.button("Update Role"):
+                    df_emp_fresh = pd.read_csv("employees.csv")
+                    df_emp_fresh.loc[df_emp_fresh["EmployeeID"] == emp_id_to_update, "Role"] = new_role
+                    df_emp_fresh.to_csv("employees.csv", index=False)
+                    st.success(f"Updated {emp_id_to_update} to {new_role}")
+                    st.rerun()
+            
+            st.markdown("---")
             st.markdown("### Delete Employee")
             delete_options = [f"{row['EmployeeID']} - {row['Name']} ({row['Email']})" for _, row in df_emp.iterrows()]
             to_delete = st.selectbox("Select employee to delete", ["Select..."] + delete_options, key="delete_selector")
@@ -900,7 +1130,7 @@ elif role == "Admin":
             if send_reset:
                 if not reset_email:
                     st.error("Enter email")
-                elif not any(reset_email.endswith(domain) for domain in ALLOWED_DOMAINS):
+                elif not any(reset_email.endswith(domain) for domain in ALLOWED_DOMAINS) and reset_email != ADMIN_EMAIL:
                     st.error(f"Email must end with {' or '.join(ALLOWED_DOMAINS)}")
                 else:
                     success, message = send_password_reset_email(reset_email)
