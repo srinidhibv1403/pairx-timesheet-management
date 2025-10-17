@@ -433,6 +433,8 @@ def signup_page():
             # Display selected manager explicitly
             if selected_manager != "None":
                 st.markdown(f"**Selected:** {selected_manager}")
+             if selected_manager == "None":
+                st.markdown(f"**Selected:None**")
         
         st.markdown("---")
         col_btn1, col_btn2 = st.columns(2)
@@ -938,3 +940,4 @@ if not st.session_state.authenticated:
 
 # Continue with dashboard code (Employee, Manager, Admin sections)...
 # [REST OF THE CODE REMAINS THE SAME - EMPLOYEE, MANAGER, ADMIN DASHBOARDS]
+
