@@ -658,6 +658,20 @@ st.markdown(f"""
     
     [data-baseweb="select"] > div > div {{
         border-bottom: none !important;
+        color: {input_text} !important;
+    }}
+    
+    /* Fix for selectbox selected value display */
+    [data-baseweb="select"] [data-baseweb="input"] {{
+        color: {input_text} !important;
+    }}
+    
+    [data-baseweb="select"] [role="button"] {{
+        color: {input_text} !important;
+    }}
+    
+    [data-baseweb="select"] > div > div > div {{
+        color: {input_text} !important;
     }}
     
     [data-baseweb="select"] ul {{
@@ -702,6 +716,15 @@ st.markdown(f"""
         padding: 10px 14px !important;
         font-size: 14px !important;
         line-height: 1.5 !important;
+    }}
+    
+    /* Additional fix for selectbox text visibility */
+    .stSelectbox > div > div > div {{
+        color: {input_text} !important;
+    }}
+    
+    .stSelectbox [data-baseweb="select"] span {{
+        color: {input_text} !important;
     }}
     
     .stButton > button,
