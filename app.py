@@ -13,7 +13,7 @@ import random
 st.set_page_config(page_title="Pairx Timesheet", layout="wide", initial_sidebar_state="collapsed")
 
 ADMIN_EMAIL = "srinidhibv.cs23@bmsce.ac.in"
-ALLOWED_DOMAINS = ["@persist-ai.com", "@pairx.com","@gmail.com"]
+ALLOWED_DOMAINS = ["@persist-ai.com", "@pairx.com", "@gmail.com"]
 FIREBASE_WEB_API_KEY = st.secrets.get("firebase_web_api_key", "YOUR_WEB_API_KEY")
 
 if not firebase_admin._apps:
@@ -549,7 +549,7 @@ def firebase_login():
                         st.error("Invalid email or user not found")
                     elif email != ADMIN_EMAIL:
                         if not any(email.endswith(domain) for domain in ALLOWED_DOMAINS):
-                            st.error(f"Access denied")
+                            st.error(f"Access denied. Only {', '.join(ALLOWED_DOMAINS)} domains are allowed")
                         else:
                             role, emp_id, name = validate_user(email)
                             if not role:
@@ -1282,4 +1282,3 @@ elif role == "Admin":
                         st.success(message)
                     else:
                         st.error(f"Error: {message}")
-
