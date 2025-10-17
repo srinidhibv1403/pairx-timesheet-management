@@ -382,7 +382,16 @@ def signup_page():
                         st.success(f"✅ Email verified! Account created successfully!")
                         st.success(f"Your Employee ID is: {new_emp_id}")
                         st.balloons()
-                        st.info("You can now sign in with your credentials.")
+                        
+                        # Auto-login after successful signup
+                        role, emp_id, name = validate_user(data['email'])
+                        if role:
+                            st.session_state.authenticated = True
+                            st.session_state.user_email = data['email']
+                            st.session_state.user_role = role
+                            st.session_state.employee_id = emp_id
+                            st.session_state.user_name = name
+                            st.session_state.view_as = role
                         
                         # Reset session state
                         st.session_state.otp_sent = False
@@ -391,6 +400,9 @@ def signup_page():
                         st.session_state.otp_expiry = None
                         st.session_state.signup_data = None
                         st.session_state.show_signup = False
+                        
+                        st.info("Redirecting to dashboard...")
+                        st.rerun()
                     else:
                         st.error(f"Account creation failed: {message}")
                 else:
@@ -429,9 +441,13 @@ def signup_page():
         df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
     
     manager_list = ["None"]
+    manager_dict = {"None": "None"}
     if not df_emp.empty:
         managers = df_emp[df_emp["Role"].isin(["Manager", "Admin"])][["EmployeeID", "Name"]].values
-        manager_list.extend([f"{m[0]} - {m[1]}" for m in managers])
+        for m in managers:
+            display_name = f"{m[0]} - {m[1]}"
+            manager_list.append(display_name)
+            manager_dict[display_name] = display_name
     
     with st.form("signup_form"):
         st.markdown("#### Account Information")
@@ -456,7 +472,13 @@ def signup_page():
         selected_manager = "None"
         if role == "Employee":
             st.markdown("**Assign Manager:**")
-            selected_manager = st.selectbox("Manager", manager_list, label_visibility="collapsed")
+            selected_manager_index = st.selectbox(
+                "Manager", 
+                options=range(len(manager_list)),
+                format_func=lambda x: manager_list[x],
+                label_visibility="collapsed"
+            )
+            selected_manager = manager_list[selected_manager_index]
         
         st.markdown("---")
         col_btn1, col_btn2 = st.columns(2)
@@ -1214,13 +1236,20 @@ elif role == "Admin":
                 except:
                     df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
                 
-                manager_list = ["None"]
+                manager_list_admin = ["None"]
                 if not df_emp.empty:
                     managers = df_emp[df_emp["Role"].isin(["Manager", "Admin"])][["EmployeeID", "Name"]].values
-                    manager_list.extend([f"{m[0]} - {m[1]}" for m in managers])
+                    for m in managers:
+                        manager_list_admin.append(f"{m[0]} - {m[1]}")
                 
                 st.markdown("**Assign Manager:**")
-                selected_manager = st.selectbox("Admin Manager", manager_list, label_visibility="collapsed")
+                selected_manager_index_admin = st.selectbox(
+                    "Admin Manager", 
+                    options=range(len(manager_list_admin)),
+                    format_func=lambda x: manager_list_admin[x],
+                    label_visibility="collapsed"
+                )
+                selected_manager = manager_list_admin[selected_manager_index_admin]
             
             create = st.form_submit_button("Create User & Employee")
             
