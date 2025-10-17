@@ -308,11 +308,31 @@ def get_my_team_employees(manager_id):
         return []
 
 def verify_firebase_password(email, password):
+    """
+    Verifies user email and password using Firebase REST API
+    """
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_WEB_API_KEY}"
+    payload = {
+        "email": email,
+        "password": password,
+        "returnSecureToken": True
+    }
+    
     try:
-        user = firebase_auth.get_user_by_email(email)
-        return True, user
-    except:
-        return False, None
+        response = requests.post(
+            url,
+            json=payload,
+            headers={"content-type": "application/json; charset=UTF-8"},
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            return True, response.json()
+        else:
+            error_msg = response.json().get("error", {}).get("message", "")
+            return False, error_msg
+    except Exception as e:
+        return False, str(e)
 
 def signup_page():
     """
@@ -544,12 +564,37 @@ def firebase_login():
                 if not email or not password:
                     st.error("Please enter both email and password")
                 else:
-                    exists, user = verify_firebase_password(email, password)
-                    if not exists:
-                        st.error("Invalid email or user not found")
-                    elif email != ADMIN_EMAIL:
-                        if not any(email.endswith(domain) for domain in ALLOWED_DOMAINS):
-                            st.error(f"Access denied. Only {', '.join(ALLOWED_DOMAINS)} domains are allowed")
+                    # Verify password using Firebase REST API
+                    success, result = verify_firebase_password(email, password)
+                    
+                    if not success:
+                        # Check the error message
+                        if "INVALID_PASSWORD" in str(result) or "INVALID_LOGIN_CREDENTIALS" in str(result):
+                            st.error("❌ Invalid email or password")
+                        elif "EMAIL_NOT_FOUND" in str(result):
+                            st.error("❌ Email not found")
+                        elif "USER_DISABLED" in str(result):
+                            st.error("❌ User account has been disabled")
+                        else:
+                            st.error(f"❌ Authentication failed: {result}")
+                    else:
+                        # Password is correct, now validate domain and user
+                        if email != ADMIN_EMAIL:
+                            if not any(email.endswith(domain) for domain in ALLOWED_DOMAINS):
+                                st.error(f"Access denied. Only {', '.join(ALLOWED_DOMAINS)} domains are allowed")
+                            else:
+                                role, emp_id, name = validate_user(email)
+                                if not role:
+                                    st.error("Email not found in employee database")
+                                else:
+                                    st.session_state.authenticated = True
+                                    st.session_state.user_email = email
+                                    st.session_state.user_role = role
+                                    st.session_state.employee_id = emp_id
+                                    st.session_state.user_name = name
+                                    st.session_state.view_as = role
+                                    st.success("✅ Login successful!")
+                                    st.rerun()
                         else:
                             role, emp_id, name = validate_user(email)
                             if not role:
@@ -561,19 +606,8 @@ def firebase_login():
                                 st.session_state.employee_id = emp_id
                                 st.session_state.user_name = name
                                 st.session_state.view_as = role
+                                st.success("✅ Login successful!")
                                 st.rerun()
-                    else:
-                        role, emp_id, name = validate_user(email)
-                        if not role:
-                            st.error("Email not found in employee database")
-                        else:
-                            st.session_state.authenticated = True
-                            st.session_state.user_email = email
-                            st.session_state.user_role = role
-                            st.session_state.employee_id = emp_id
-                            st.session_state.user_name = name
-                            st.session_state.view_as = role
-                            st.rerun()
         
         with col2:
             if st.button("Forgot Password?", use_container_width=True):
