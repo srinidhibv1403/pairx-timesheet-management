@@ -451,12 +451,22 @@ def signup_page():
         with col3:
             department = st.text_input("Department *", placeholder="Engineering")
             role = st.selectbox("Role *", ["Employee", "Manager"])
+            
+            # Display role selection info
+            if role == "Employee":
+                st.info("✓ Selected: Employee - Will be assigned to a manager")
+            else:
+                st.info("✓ Selected: Manager - No manager assignment needed")
+        
         with col4:
             if role == "Employee":
-                selected_manager = st.selectbox("Assign Manager", manager_list)
+                selected_manager = st.selectbox("Assign Manager *", manager_list)
+                if selected_manager != "None":
+                    st.success(f"✓ Manager assigned: {selected_manager}")
             else:
                 selected_manager = "None"
-                st.info("Managers don't need to be assigned to another manager")
+                st.markdown("")  # Spacer
+                st.info("Managers don't need manager assignment")
         
         st.markdown("---")
         col_btn1, col_btn2 = st.columns(2)
@@ -499,6 +509,10 @@ def signup_page():
             
             if not department.strip():
                 errors.append("⚠️ Department is required")
+            
+            # Validate manager selection for employees
+            if role == "Employee" and selected_manager == "None":
+                errors.append("⚠️ Please select a manager for employee role")
             
             if errors:
                 for error in errors:
