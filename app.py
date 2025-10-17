@@ -447,26 +447,16 @@ def signup_page():
         st.markdown("---")
         st.markdown("#### Employee Details")
         
-        col3, col4 = st.columns(2)
-        with col3:
-            department = st.text_input("Department *", placeholder="Engineering")
-            role = st.selectbox("Role *", ["Employee", "Manager"])
-            
-            # Display role selection info
-            if role == "Employee":
-                st.info("✓ Selected: Employee - Will be assigned to a manager")
-            else:
-                st.info("✓ Selected: Manager - No manager assignment needed")
+        department = st.text_input("Department *", placeholder="Engineering")
         
-        with col4:
-            if role == "Employee":
-                selected_manager = st.selectbox("Assign Manager *", manager_list)
-                if selected_manager != "None":
-                    st.success(f"✓ Manager assigned: {selected_manager}")
-            else:
-                selected_manager = "None"
-                st.markdown("")  # Spacer
-                st.info("Managers don't need manager assignment")
+        st.markdown("**Select Role:**")
+        role = st.radio("Role", ["Employee", "Manager"], horizontal=True, label_visibility="collapsed")
+        
+        # Show manager assignment only if Employee is selected
+        selected_manager = "None"
+        if role == "Employee":
+            st.markdown("**Assign Manager:**")
+            selected_manager = st.selectbox("Manager", manager_list, label_visibility="collapsed")
         
         st.markdown("---")
         col_btn1, col_btn2 = st.columns(2)
@@ -1210,27 +1200,27 @@ elif role == "Admin":
             st.markdown("---")
             st.markdown("#### Employee Details")
             
-            col3, col4 = st.columns(2)
-            with col3:
-                emp_dept = st.text_input("Department *", placeholder="Engineering")
-                emp_role_input = st.selectbox("Role *", ["Employee", "Manager", "Admin"])
-            with col4:
-                if emp_role_input == "Employee":
-                    try:
-                        df_emp = pd.read_csv("employees.csv")
-                        if "ManagerID" not in df_emp.columns:
-                            df_emp["ManagerID"] = ""
-                    except:
-                        df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
-                    
-                    manager_list = ["None"]
-                    if not df_emp.empty:
-                        managers = df_emp[df_emp["Role"].isin(["Manager", "Admin"])][["EmployeeID", "Name"]].values
-                        manager_list.extend([f"{m[0]} - {m[1]}" for m in managers])
-                    selected_manager = st.selectbox("Assign Manager", manager_list)
-                else:
-                    selected_manager = "None"
-                    st.info("Managers and Admins don't need manager assignment")
+            emp_dept = st.text_input("Department *", placeholder="Engineering")
+            
+            st.markdown("**Select Role:**")
+            emp_role_input = st.radio("Admin Role", ["Employee", "Manager", "Admin"], horizontal=True, label_visibility="collapsed")
+            
+            selected_manager = "None"
+            if emp_role_input == "Employee":
+                try:
+                    df_emp = pd.read_csv("employees.csv")
+                    if "ManagerID" not in df_emp.columns:
+                        df_emp["ManagerID"] = ""
+                except:
+                    df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
+                
+                manager_list = ["None"]
+                if not df_emp.empty:
+                    managers = df_emp[df_emp["Role"].isin(["Manager", "Admin"])][["EmployeeID", "Name"]].values
+                    manager_list.extend([f"{m[0]} - {m[1]}" for m in managers])
+                
+                st.markdown("**Assign Manager:**")
+                selected_manager = st.selectbox("Admin Manager", manager_list, label_visibility="collapsed")
             
             create = st.form_submit_button("Create User & Employee")
             
