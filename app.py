@@ -75,15 +75,9 @@ def check_and_create_csvs():
 check_and_create_csvs()
 
 def generate_otp():
-    """
-    Generates a random 6-digit OTP
-    """
     return ''.join([str(random.randint(0, 9)) for _ in range(6)])
 
 def send_otp_email(email, otp, name):
-    """
-    Sends OTP to the user's email for verification
-    """
     try:
         import smtplib
         from email.mime.text import MIMEText
@@ -137,15 +131,11 @@ def send_otp_email(email, otp, name):
         return False, f"Failed to send OTP: {str(e)}"
 
 def generate_next_employee_id():
-    """
-    Generates the next employee ID by finding the max ID and incrementing it
-    """
     try:
         df_emp = pd.read_csv("employees.csv")
         if df_emp.empty:
             return "EMP001"
         
-        # Extract numeric part from EmployeeID
         df_emp['ID_Numeric'] = df_emp['EmployeeID'].str.extract(r'(\d+)').astype(int)
         max_id = df_emp['ID_Numeric'].max()
         next_id = max_id + 1
@@ -158,12 +148,6 @@ def generate_password(length=12):
     return ''.join(secrets.choice(chars) for _ in range(length))
 
 def validate_password(password):
-    """
-    Validates password with requirements:
-    - At least 8 characters
-    - At least one uppercase letter
-    - At least one special character
-    """
     if len(password) < 8:
         return False, "Password must be at least 8 characters long"
     
@@ -176,9 +160,6 @@ def validate_password(password):
     return True, "Password is valid"
 
 def create_firebase_user_signup(email, password):
-    """
-    Creates a new user in Firebase using REST API for signup
-    """
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_WEB_API_KEY}"
     payload = {
         "email": email,
@@ -203,9 +184,6 @@ def create_firebase_user_signup(email, password):
         return False, str(e)
 
 def add_employee_to_database(emp_id, name, email, department, role, manager_id=""):
-    """
-    Adds employee to the employees.csv database
-    """
     try:
         df_emp = pd.read_csv("employees.csv")
     except:
@@ -308,9 +286,6 @@ def get_my_team_employees(manager_id):
         return []
 
 def verify_firebase_password(email, password):
-    """
-    Verifies user email and password using Firebase REST API
-    """
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_WEB_API_KEY}"
     payload = {
         "email": email,
@@ -335,16 +310,11 @@ def verify_firebase_password(email, password):
         return False, str(e)
 
 def signup_page():
-    """
-    Renders the signup page with email verification via OTP
-    """
     st.markdown("### Create Your Account")
     
-    # OTP Verification Stage
     if st.session_state.otp_sent:
         st.info(f"An OTP has been sent to {st.session_state.otp_email}")
         
-        # Check if OTP expired
         if datetime.now() > st.session_state.otp_expiry:
             st.error("OTP has expired. Please request a new one.")
             if st.button("Restart Signup"):
@@ -365,17 +335,11 @@ def signup_page():
         with col1:
             if st.button("Verify OTP", use_container_width=True):
                 if otp_input == st.session_state.generated_otp:
-                    # OTP verified, create account
                     data = st.session_state.signup_data
-                    
-                    # Generate next employee ID
                     new_emp_id = generate_next_employee_id()
-                    
-                    # Create user in Firebase
                     success, message = create_firebase_user_signup(data['email'], data['password'])
                     
                     if success:
-                        # Add employee to database
                         add_employee_to_database(new_emp_id, data['name'], data['email'], 
                                                 data['department'], data['role'], data['manager_id'])
                         
@@ -383,7 +347,6 @@ def signup_page():
                         st.success(f"Your Employee ID is: {new_emp_id}")
                         st.balloons()
                         
-                        # Auto-login after successful signup
                         role, emp_id, name = validate_user(data['email'])
                         if role:
                             st.session_state.authenticated = True
@@ -393,7 +356,6 @@ def signup_page():
                             st.session_state.user_name = name
                             st.session_state.view_as = role
                         
-                        # Reset session state
                         st.session_state.otp_sent = False
                         st.session_state.generated_otp = None
                         st.session_state.otp_email = None
@@ -432,7 +394,6 @@ def signup_page():
         
         return
     
-    # Initial Signup Form
     try:
         df_emp = pd.read_csv("employees.csv")
         if "ManagerID" not in df_emp.columns:
@@ -441,13 +402,10 @@ def signup_page():
         df_emp = pd.DataFrame(columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
     
     manager_list = ["None"]
-    manager_dict = {"None": "None"}
     if not df_emp.empty:
         managers = df_emp[df_emp["Role"].isin(["Manager", "Admin"])][["EmployeeID", "Name"]].values
         for m in managers:
-            display_name = f"{m[0]} - {m[1]}"
-            manager_list.append(display_name)
-            manager_dict[display_name] = display_name
+            manager_list.append(f"{m[0]} - {m[1]}")
     
     with st.form("signup_form"):
         st.markdown("#### Account Information")
@@ -468,26 +426,21 @@ def signup_page():
         st.markdown("**Select Role:**")
         role = st.radio("Role", ["Employee", "Manager"], horizontal=True, label_visibility="collapsed")
         
-        # Show manager assignment only if Employee is selected
         selected_manager = "None"
         if role == "Employee":
             st.markdown("**Assign Manager:**")
-            selected_manager_index = st.selectbox(
-                "Manager", 
-                options=range(len(manager_list)),
-                format_func=lambda x: manager_list[x],
-                label_visibility="collapsed"
-            )
-            selected_manager = manager_list[selected_manager_index]
+            selected_manager = st.selectbox("Manager", manager_list, label_visibility="collapsed", index=0)
         
         st.markdown("---")
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             submit_button = st.form_submit_button("Send Verification OTP", use_container_width=True)
         with col_btn2:
-            if st.form_submit_button("Back to Login", use_container_width=True):
-                st.session_state.show_signup = False
-                st.rerun()
+            back_button = st.form_submit_button("Back to Login", use_container_width=True)
+        
+        if back_button:
+            st.session_state.show_signup = False
+            st.rerun()
         
         if submit_button:
             errors = []
@@ -522,7 +475,6 @@ def signup_page():
             if not department.strip():
                 errors.append("⚠️ Department is required")
             
-            # Validate manager selection for employees
             if role == "Employee" and selected_manager == "None":
                 errors.append("⚠️ Please select a manager for employee role")
             
@@ -530,12 +482,10 @@ def signup_page():
                 for error in errors:
                     st.error(error)
             else:
-                # Generate and send OTP
                 otp = generate_otp()
                 success, msg = send_otp_email(email, otp, name)
                 
                 if success:
-                    # Store signup data and OTP in session state
                     manager_id = "" if selected_manager == "None" else selected_manager.split(" - ")[0]
                     st.session_state.signup_data = {
                         'name': name,
@@ -590,11 +540,9 @@ def firebase_login():
                 if not email or not password:
                     st.error("Please enter both email and password")
                 else:
-                    # Verify password using Firebase REST API
                     success, result = verify_firebase_password(email, password)
                     
                     if not success:
-                        # Check the error message
                         if "INVALID_PASSWORD" in str(result) or "INVALID_LOGIN_CREDENTIALS" in str(result):
                             st.error("❌ Invalid email or password")
                         elif "EMAIL_NOT_FOUND" in str(result):
@@ -604,7 +552,6 @@ def firebase_login():
                         else:
                             st.error(f"❌ Authentication failed: {result}")
                     else:
-                        # Password is correct, now validate domain and user
                         if email != ADMIN_EMAIL:
                             if not any(email.endswith(domain) for domain in ALLOWED_DOMAINS):
                                 st.error(f"Access denied. Only {', '.join(ALLOWED_DOMAINS)} domains are allowed")
@@ -1227,7 +1174,7 @@ elif role == "Admin":
             st.markdown("**Select Role:**")
             emp_role_input = st.radio("Admin Role", ["Employee", "Manager", "Admin"], horizontal=True, label_visibility="collapsed")
             
-            selected_manager = "None"
+            selected_manager_admin = "None"
             if emp_role_input == "Employee":
                 try:
                     df_emp = pd.read_csv("employees.csv")
@@ -1243,13 +1190,7 @@ elif role == "Admin":
                         manager_list_admin.append(f"{m[0]} - {m[1]}")
                 
                 st.markdown("**Assign Manager:**")
-                selected_manager_index_admin = st.selectbox(
-                    "Admin Manager", 
-                    options=range(len(manager_list_admin)),
-                    format_func=lambda x: manager_list_admin[x],
-                    label_visibility="collapsed"
-                )
-                selected_manager = manager_list_admin[selected_manager_index_admin]
+                selected_manager_admin = st.selectbox("Admin Manager", manager_list_admin, label_visibility="collapsed", index=0)
             
             create = st.form_submit_button("Create User & Employee")
             
@@ -1273,7 +1214,7 @@ elif role == "Admin":
                             user = firebase_auth.create_user(email=new_email, password=auto_password, display_name=new_name)
                             
                             new_emp_id = generate_next_employee_id()
-                            manager_id = "" if selected_manager == "None" else selected_manager.split(" - ")[0]
+                            manager_id = "" if selected_manager_admin == "None" else selected_manager_admin.split(" - ")[0]
                             add_employee_to_database(new_emp_id, new_name, new_email, emp_dept, emp_role_input, manager_id)
                             
                             st.success(f"User created: {user.email} | Employee ID: {new_emp_id}")
