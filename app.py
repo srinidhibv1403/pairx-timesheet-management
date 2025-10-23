@@ -13,7 +13,7 @@ import random
 st.set_page_config(page_title="Pairx Timesheet", layout="wide", initial_sidebar_state="collapsed")
 
 ADMIN_EMAIL = "srinidhibv.cs23@bmsce.ac.in"
-ALLOWED_DOMAINS = ["@persist-ai.com", "@pairx.com"]
+ALLOWED_DOMAINS = ["@persist-ai.com", "@pairx.com", "@gmail.com"]
 FIREBASE_WEB_API_KEY = st.secrets.get("firebase_web_api_key", "YOUR_WEB_API_KEY")
 
 if not firebase_admin._apps:
@@ -63,16 +63,108 @@ def check_and_create_csvs():
     files_headers = {
         "employees.csv": "EmployeeID,Name,Email,Department,Role,ManagerID\n",
         "projects.csv": "ProjectID,ProjectName,StartDate,EndDate\n",
-        "tasks.csv": "TaskID,ProjectID,AssignedTo,Status\n",
-        "timesheets.csv": "TimesheetID,EmployeeID,Date,TaskID,TaskDescription,HoursWorked,ApprovalStatus,ManagerComment\n",
-        "leaves.csv": "LeaveID,EmployeeID,Type,StartDate,EndDate,Reason,Status,ManagerComment\n"
+        "tasks.csv": "TaskID,ProjectID,AssignedTo,Status\n"
     }
     for fname, header in files_headers.items():
         if not os.path.exists(fname):
             with open(fname, "w") as f:
                 f.write(header)
+    
+    # Create data directories for employee-specific files
+    os.makedirs("employee_data/timesheets", exist_ok=True)
+    os.makedirs("employee_data/leaves", exist_ok=True)
 
 check_and_create_csvs()
+
+def get_employee_timesheet_file(employee_id):
+    """Get the timesheet file path for a specific employee"""
+    return f"employee_data/timesheets/{employee_id}_timesheets.csv"
+
+def get_employee_leave_file(employee_id):
+    """Get the leave file path for a specific employee"""
+    return f"employee_data/leaves/{employee_id}_leaves.csv"
+
+def create_employee_timesheet_file(employee_id):
+    """Create a new timesheet file for an employee if it doesn't exist"""
+    filepath = get_employee_timesheet_file(employee_id)
+    if not os.path.exists(filepath):
+        with open(filepath, "w") as f:
+            f.write("TimesheetID,EmployeeID,Date,TaskID,TaskDescription,HoursWorked,ApprovalStatus,ManagerComment\n")
+    return filepath
+
+def create_employee_leave_file(employee_id):
+    """Create a new leave file for an employee if it doesn't exist"""
+    filepath = get_employee_leave_file(employee_id)
+    if not os.path.exists(filepath):
+        with open(filepath, "w") as f:
+            f.write("LeaveID,EmployeeID,Type,StartDate,EndDate,Reason,Status,ManagerComment\n")
+    return filepath
+
+def load_employee_timesheets(employee_id):
+    """Load timesheets for a specific employee"""
+    filepath = create_employee_timesheet_file(employee_id)
+    try:
+        df = pd.read_csv(filepath)
+        if "TaskDescription" not in df.columns:
+            df["TaskDescription"] = ""
+        if "ManagerComment" not in df.columns:
+            df["ManagerComment"] = ""
+        return df
+    except:
+        return pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
+
+def load_employee_leaves(employee_id):
+    """Load leaves for a specific employee"""
+    filepath = create_employee_leave_file(employee_id)
+    try:
+        df = pd.read_csv(filepath)
+        if "Reason" not in df.columns:
+            df["Reason"] = ""
+        if "ManagerComment" not in df.columns:
+            df["ManagerComment"] = ""
+        return df
+    except:
+        return pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
+
+def load_team_timesheets(manager_id):
+    """Load all timesheets for employees managed by this manager"""
+    team = get_my_team_employees(manager_id)
+    all_timesheets = []
+    
+    for emp_id in team:
+        df = load_employee_timesheets(emp_id)
+        if not df.empty:
+            all_timesheets.append(df)
+    
+    if all_timesheets:
+        return pd.concat(all_timesheets, ignore_index=True)
+    else:
+        return pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
+
+def load_team_leaves(manager_id):
+    """Load all leaves for employees managed by this manager"""
+    team = get_my_team_employees(manager_id)
+    all_leaves = []
+    
+    for emp_id in team:
+        df = load_employee_leaves(emp_id)
+        if not df.empty:
+            all_leaves.append(df)
+    
+    if all_leaves:
+        return pd.concat(all_leaves, ignore_index=True)
+    else:
+        return pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
+
+def save_employee_timesheets(employee_id, df):
+    """Save timesheets for a specific employee"""
+    filepath = get_employee_timesheet_file(employee_id)
+    df.to_csv(filepath, index=False)
+
+def save_employee_leaves(employee_id, df):
+    """Save leaves for a specific employee"""
+    filepath = get_employee_leave_file(employee_id)
+    df.to_csv(filepath, index=False)
 
 def generate_otp():
     return ''.join([str(random.randint(0, 9)) for _ in range(6)])
@@ -193,6 +285,11 @@ def add_employee_to_database(emp_id, name, email, department, role, manager_id="
                           columns=["EmployeeID", "Name", "Email", "Department", "Role", "ManagerID"])
     out = pd.concat([df_emp, new_row], ignore_index=True)
     out.to_csv("employees.csv", index=False)
+    
+    # Create employee-specific files
+    create_employee_timesheet_file(emp_id)
+    create_employee_leave_file(emp_id)
+    
     return True
 
 def send_password_email(email, password, name):
@@ -990,37 +1087,24 @@ if role == "Employee":
             if not task_id or not task_desc or hours <= 0:
                 st.error("Please fill all fields")
             else:
-                try:
-                    df = pd.read_csv("timesheets.csv")
-                    if "TaskDescription" not in df.columns:
-                        df["TaskDescription"] = ""
-                    if "ManagerComment" not in df.columns:
-                        df["ManagerComment"] = ""
-                except:
-                    df = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
+                df = load_employee_timesheets(emp_id)
                 new_id = df["TimesheetID"].max() + 1 if not df.empty else 1
                 new_row = pd.DataFrame([[new_id, emp_id, str(date), task_id, task_desc, hours, "Pending", ""]], 
                                       columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
-                out = pd.concat([df, new_row], ignore_index=True)
-                out.to_csv("timesheets.csv", index=False)
+                df = pd.concat([df, new_row], ignore_index=True)
+                save_employee_timesheets(emp_id, df)
                 st.success("Timesheet submitted!")
                 st.rerun()
         
         st.markdown("---")
         st.subheader("My Timesheet History")
-        try:
-            df = pd.read_csv("timesheets.csv")
-            if "TaskDescription" not in df.columns:
-                df["TaskDescription"] = ""
-            if "ManagerComment" not in df.columns:
-                df["ManagerComment"] = ""
-            filtered_df = df[df["EmployeeID"] == emp_id]
-            st.dataframe(filtered_df, use_container_width=True, height=300)
-            if not filtered_df.empty:
-                csv = filtered_df.to_csv(index=False)
-                st.download_button("Download", csv, "timesheets.csv", "text/csv")
-        except:
+        df = load_employee_timesheets(emp_id)
+        if df.empty:
             st.info("No timesheet history")
+        else:
+            st.dataframe(df, use_container_width=True, height=300)
+            csv = df.to_csv(index=False)
+            st.download_button("Download", csv, f"{emp_id}_timesheets.csv", "text/csv")
     
     with tab2:
         st.subheader("Apply for Leave")
@@ -1042,43 +1126,27 @@ if role == "Employee":
             if start > end or not leave_reason:
                 st.error("Invalid input")
             else:
-                try:
-                    df = pd.read_csv("leaves.csv")
-                    if "Reason" not in df.columns:
-                        df["Reason"] = ""
-                    if "ManagerComment" not in df.columns:
-                        df["ManagerComment"] = ""
-                except:
-                    df = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
+                df = load_employee_leaves(emp_id)
                 new_id = df["LeaveID"].max() + 1 if not df.empty else 1
                 new_row = pd.DataFrame([[new_id, emp_id, leave_type, str(start), str(end), leave_reason, "Pending", ""]], 
                                       columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
-                out = pd.concat([df, new_row], ignore_index=True)
-                out.to_csv("leaves.csv", index=False)
+                df = pd.concat([df, new_row], ignore_index=True)
+                save_employee_leaves(emp_id, df)
                 st.success("Leave request submitted!")
                 st.rerun()
         
         st.markdown("---")
         st.subheader("My Leave History")
-        try:
-            df_lv = pd.read_csv("leaves.csv")
-            if "Reason" not in df_lv.columns:
-                df_lv["Reason"] = ""
-            if "ManagerComment" not in df_lv.columns:
-                df_lv["ManagerComment"] = ""
-            my_leaves = df_lv[df_lv["EmployeeID"] == emp_id]
-            
-            approved_pending_leaves = my_leaves[my_leaves["Status"].isin(["Approved", "Pending"])]
+        df_lv = load_employee_leaves(emp_id)
+        if df_lv.empty:
+            st.info("No leave history")
+        else:
+            approved_pending_leaves = df_lv[df_lv["Status"].isin(["Approved", "Pending"])]
             st.info(f"Total Approved/Pending Leaves: {len(approved_pending_leaves)}")
             
-            if my_leaves.empty:
-                st.info("No leave history")
-            else:
-                st.dataframe(my_leaves, use_container_width=True, height=300)
-                csv = my_leaves.to_csv(index=False)
-                st.download_button("Download", csv, "leaves.csv", "text/csv")
-        except:
-            st.info("No leave history")
+            st.dataframe(df_lv, use_container_width=True, height=300)
+            csv = df_lv.to_csv(index=False)
+            st.download_button("Download", csv, f"{emp_id}_leaves.csv", "text/csv")
 
 elif role == "Manager":
     st.header("Manager Dashboard")
@@ -1087,89 +1155,117 @@ elif role == "Manager":
     if not my_team:
         st.info("No employees assigned")
     else:
-        st.info(f"Managing {len(my_team)} employee(s)")
+        st.info(f"Managing {len(my_team)} employee(s): {', '.join(my_team)}")
     
     tab1, tab2 = st.tabs(["Timesheets", "Leaves"])
     
     with tab1:
-        st.subheader("Pending Timesheets")
-        try:
-            df_ts = pd.read_csv("timesheets.csv")
-            if "TaskDescription" not in df_ts.columns:
-                df_ts["TaskDescription"] = ""
-            if "ManagerComment" not in df_ts.columns:
-                df_ts["ManagerComment"] = ""
-        except:
-            df_ts = pd.DataFrame(columns=["TimesheetID", "EmployeeID", "Date", "TaskID", "TaskDescription", "HoursWorked", "ApprovalStatus", "ManagerComment"])
+        st.subheader("Team Timesheets")
+        df_ts = load_team_timesheets(emp_id)
         
-        pending_ts = df_ts[(df_ts["ApprovalStatus"] == "Pending") & (df_ts["EmployeeID"].isin(my_team))]
-        
-        if pending_ts.empty:
-            st.info("No pending timesheets")
+        if df_ts.empty:
+            st.info("No timesheets from your team")
         else:
-            st.dataframe(pending_ts, use_container_width=True, height=250)
-            for ix, row in pending_ts.iterrows():
-                with st.expander(f"Timesheet #{row['TimesheetID']} - Employee: {row['EmployeeID']}"):
-                    st.write(f"**Task:** {row['TaskID']} | **Hours:** {row['HoursWorked']} | **Date:** {row['Date']}")
-                    st.write(f"**Description:** {row.get('TaskDescription', 'N/A')}")
-                    
-                    col1, col2 = st.columns([1, 2])
-                    with col1:
-                        action = st.radio("Decision", ["Pending", "Approve", "Reject"], key=f"ts{row['TimesheetID']}")
-                    with col2:
-                        comment = st.text_area("Comment", key=f"cmt_ts{row['TimesheetID']}", height=80)
-                    
-                    if st.button("Update", key=f"btn_ts{row['TimesheetID']}"):
-                        if action == "Pending":
-                            st.warning("Select Approve or Reject")
-                        elif not comment:
-                            st.error("Provide comment")
-                        else:
-                            df_ts.loc[ix, "ApprovalStatus"] = action
-                            df_ts.loc[ix, "ManagerComment"] = comment
-                            df_ts.to_csv("timesheets.csv", index=False)
-                            st.success(f"Updated!")
-                            st.rerun()
+            pending_ts = df_ts[df_ts["ApprovalStatus"] == "Pending"]
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Total Timesheets", len(df_ts))
+            with col2:
+                st.metric("Pending Approval", len(pending_ts))
+            
+            st.markdown("---")
+            st.markdown("### Pending Timesheets")
+            
+            if pending_ts.empty:
+                st.info("No pending timesheets")
+            else:
+                st.dataframe(pending_ts, use_container_width=True, height=250)
+                
+                for idx, row in pending_ts.iterrows():
+                    with st.expander(f"Timesheet #{row['TimesheetID']} - Employee: {row['EmployeeID']}"):
+                        st.write(f"**Task:** {row['TaskID']} | **Hours:** {row['HoursWorked']} | **Date:** {row['Date']}")
+                        st.write(f"**Description:** {row.get('TaskDescription', 'N/A')}")
+                        
+                        col1, col2 = st.columns([1, 2])
+                        with col1:
+                            action = st.radio("Decision", ["Pending", "Approve", "Reject"], key=f"ts{row['TimesheetID']}_{row['EmployeeID']}")
+                        with col2:
+                            comment = st.text_area("Comment", key=f"cmt_ts{row['TimesheetID']}_{row['EmployeeID']}", height=80)
+                        
+                        if st.button("Update", key=f"btn_ts{row['TimesheetID']}_{row['EmployeeID']}"):
+                            if action == "Pending":
+                                st.warning("Select Approve or Reject")
+                            elif not comment:
+                                st.error("Provide comment")
+                            else:
+                                # Load employee's specific file
+                                employee_id = row['EmployeeID']
+                                emp_df = load_employee_timesheets(employee_id)
+                                
+                                # Update the specific row
+                                emp_df.loc[emp_df['TimesheetID'] == row['TimesheetID'], 'ApprovalStatus'] = action
+                                emp_df.loc[emp_df['TimesheetID'] == row['TimesheetID'], 'ManagerComment'] = comment
+                                
+                                # Save back to employee's file
+                                save_employee_timesheets(employee_id, emp_df)
+                                
+                                st.success(f"Updated!")
+                                st.rerun()
     
     with tab2:
-        st.subheader("Pending Leave Requests")
-        try:
-            df_lv = pd.read_csv("leaves.csv")
-            if "Reason" not in df_lv.columns:
-                df_lv["Reason"] = ""
-            if "ManagerComment" not in df_lv.columns:
-                df_lv["ManagerComment"] = ""
-        except:
-            df_lv = pd.DataFrame(columns=["LeaveID", "EmployeeID", "Type", "StartDate", "EndDate", "Reason", "Status", "ManagerComment"])
+        st.subheader("Team Leave Requests")
+        df_lv = load_team_leaves(emp_id)
         
-        pending_lv = df_lv[(df_lv["Status"] == "Pending") & (df_lv["EmployeeID"].isin(my_team))]
-        
-        if pending_lv.empty:
-            st.info("No pending leave requests")
+        if df_lv.empty:
+            st.info("No leave requests from your team")
         else:
-            st.dataframe(pending_lv, use_container_width=True, height=250)
-            for ix, row in pending_lv.iterrows():
-                with st.expander(f"Leave #{row['LeaveID']} - Employee: {row['EmployeeID']}"):
-                    st.write(f"**Type:** {row['Type']} | **Duration:** {row['StartDate']} to {row['EndDate']}")
-                    st.write(f"**Reason:** {row.get('Reason', 'N/A')}")
-                    
-                    col1, col2 = st.columns([1, 2])
-                    with col1:
-                        action = st.radio("Decision", ["Pending", "Approve", "Reject"], key=f"lv{row['LeaveID']}")
-                    with col2:
-                        comment = st.text_area("Comment", key=f"cmt_lv{row['LeaveID']}", height=80)
-                    
-                    if st.button("Update", key=f"btn_lv{row['LeaveID']}"):
-                        if action == "Pending":
-                            st.warning("Select Approve or Reject")
-                        elif not comment:
-                            st.error("Provide comment")
-                        else:
-                            df_lv.loc[ix, "Status"] = action
-                            df_lv.loc[ix, "ManagerComment"] = comment
-                            df_lv.to_csv("leaves.csv", index=False)
-                            st.success(f"Updated!")
-                            st.rerun()
+            pending_lv = df_lv[df_lv["Status"] == "Pending"]
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Total Leave Requests", len(df_lv))
+            with col2:
+                st.metric("Pending Approval", len(pending_lv))
+            
+            st.markdown("---")
+            st.markdown("### Pending Leave Requests")
+            
+            if pending_lv.empty:
+                st.info("No pending leave requests")
+            else:
+                st.dataframe(pending_lv, use_container_width=True, height=250)
+                
+                for idx, row in pending_lv.iterrows():
+                    with st.expander(f"Leave #{row['LeaveID']} - Employee: {row['EmployeeID']}"):
+                        st.write(f"**Type:** {row['Type']} | **Duration:** {row['StartDate']} to {row['EndDate']}")
+                        st.write(f"**Reason:** {row.get('Reason', 'N/A')}")
+                        
+                        col1, col2 = st.columns([1, 2])
+                        with col1:
+                            action = st.radio("Decision", ["Pending", "Approve", "Reject"], key=f"lv{row['LeaveID']}_{row['EmployeeID']}")
+                        with col2:
+                            comment = st.text_area("Comment", key=f"cmt_lv{row['LeaveID']}_{row['EmployeeID']}", height=80)
+                        
+                        if st.button("Update", key=f"btn_lv{row['LeaveID']}_{row['EmployeeID']}"):
+                            if action == "Pending":
+                                st.warning("Select Approve or Reject")
+                            elif not comment:
+                                st.error("Provide comment")
+                            else:
+                                # Load employee's specific file
+                                employee_id = row['EmployeeID']
+                                emp_df = load_employee_leaves(employee_id)
+                                
+                                # Update the specific row
+                                emp_df.loc[emp_df['LeaveID'] == row['LeaveID'], 'Status'] = action
+                                emp_df.loc[emp_df['LeaveID'] == row['LeaveID'], 'ManagerComment'] = comment
+                                
+                                # Save back to employee's file
+                                save_employee_leaves(employee_id, emp_df)
+                                
+                                st.success(f"Updated!")
+                                st.rerun()
 
 elif role == "Admin":
     st.header("Admin Dashboard")
@@ -1315,4 +1411,3 @@ elif role == "Admin":
                         st.success(message)
                     else:
                         st.error(f"Error: {message}")
-
